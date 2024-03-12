@@ -40,7 +40,8 @@ def get_time():
         x.append(k)
         return x
 
-    
+x = get_time()
+y = get_depth()
 
 plt.plot(x, y)
 plt.show()
