@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request,g,jsonify
 import sqlite3
-import os
-import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
 
@@ -104,4 +102,4 @@ def parse_xml(file_path):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
