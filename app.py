@@ -1,105 +1,64 @@
-from flask import Flask, render_template, request,g,jsonify
-import sqlite3
-from bs4 import BeautifulSoup
-
+from flask import Flask, render_template, request
+from flask import Flask, jsonify
+import os
+from BaseXClient import BaseXClient
 
 app = Flask(__name__)
 
-DATABASE="divedata2.db"
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-    return db
-
-def create_table():
-    # Create a table if not exists
-    connection = get_db()
-    cursor = connection.cursor()
-
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS dives (
-        NAME TEXT,
-        DATE TEXT,
-        SITE_name TEXT
-    )
-    ''')
-    connection.commit()
-
-def insert_data_into_db(data):
-    # Insert data into the database
-    connection = get_db()
-    cursor = connection.cursor()
-
-    # insert_query = 'INSERT INTO your_table (NAME, Manufacturer_id, DATE, TIME, OWNER_id, DIVECOMPUTER_id, DIVECOMPUTER_name, DIVECOMPUTER_model, SITE_id, SITE_name, SITE_enviroment, LATITUDE, LONGITUDE, ALTITUDE INTEGER  ...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,...);'
-    # insert_query='INSERT INTO dives (NAME, DATE, SITE_name) VALUES(?,?,?)'
-    cursor.execute('''
-                   INSERT INTO dives (NAME, DATE, SITE_name) VALUES(?,?,?)
-                   ''',(data[0], data[1],data[2]))
-    connection.commit() 
-
-def remove_from_db (data):
-    connection=get_db()
-    cursor=connection.cursor()
-    cursor.execute('DELETE FROM dives WHERE rowid= (?)', (data,))
-    connection.commit()
+# Connect to BaseX server
+session = BaseXClient.Session('localhost', 1984, 'admin', 'hej123')
 
 @app.route('/')
 def index():
-    # Fetch data from the database
-    connection = get_db()
-    cursor = connection.cursor()
-    create_table()
-    cursor.execute("SELECT * FROM dives")
-    data_from_db = cursor.fetchall()
-
-    # Render the template and pass the data to it
-    return render_template('index.html', data=data_from_db)
-
-
+    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
-def upload():
-    if 'xmlFile' in request.files:
-        xml_file = request.files['xmlFile']
-        file_path = 'uploads/' + xml_file.filename
-        xml_file.save(file_path)
+def upload_file():
+    if 'xmlFile' not in request.files:
+        return {'message': 'No file part'}, 400
 
-        # Parse the XML file and extract data
-        data = parse_xml(file_path)
+    file = request.files['xmlFile']
+    if file.filename == '':
+        return {'message': 'No selected file'}, 400
 
-        # Create table if not exists
-        
+    if file and file.filename.endswith('.xml'):
+        filename = file.filename
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
 
-        # Insert data into the database
-        insert_data_into_db(data)
+        # Read XML data from the file
+        with open(file_path, "r") as file:
+            xml_data = file.read()
 
-        response_data = {
-            'status': 'success',
-            'message': 'File uploaded and data saved to the database successfully!'
-        }
-
+        # Add the XML data to the BaseX database
+        try:
+            session.add(filename, xml_data)
+            message = 'File uploaded and added to the database successfully'
+            return {'message': message}, 200
+        except Exception as e:
+            return {'message': 'Error adding file to the database: ' + str(e)}, 500
     else:
-        response_data = {
-            'status': 'error',
-            'message': 'No file provided.'
-        }
-    return jsonify(response_data)
+        return {'message': 'Invalid file format, please upload an XML file'}, 400
     
 
-def parse_xml(file_path):
-    with open(file_path, 'r') as f:
-        data = f.read()
-    
-    bs_data = BeautifulSoup(data, 'xml') 
-    bs_name = bs_data.find("name").get_text(strip=True)  # Extract text content
-    bs_date = bs_data.find("year").get_text(strip=True)  # Extract text content
-    bs_SITE_name = bs_data.find("environment").get_text(strip=True)  # Extract text content
-
-    data = [bs_name, bs_date, bs_SITE_name]
-    return data
-
-
+@app.route('/data', methods=['GET'])
+def get_data():
+        # Define the XQuery query to retrieve manufacturer names
+        query_str = '''
+        let $results := collection('db2')//generator//manufacturer//name/text()
+        return <results>{$results}</results>
+        '''
+        # Execute the XQuery query
+        query = session.query(query_str)
+        result = query.execute()
+        # Convert result to JSON format
+        data = {'result': result}
+        print(data)
+        
+        return jsonify(data),result
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    
+    app.run(debug=True)
