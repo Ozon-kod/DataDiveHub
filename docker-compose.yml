@@ -8,11 +8,13 @@ services:
       - "5000:5000"
 
   database:
-    image: mysql:latest
+    image: basex/basexhttp:latest
     ports: # Example port mapping, can be used later to connect from application like: database:8000
-      - "8000:8000"
-    volumes: # For persisting data
-      - db-data:/var/lib/mysql
+      - "1984:5000"
+    environment:
+      - user=admin
+      - password=hej123
+      
 
 volumes:
   db-data:
