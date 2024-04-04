@@ -8,12 +8,29 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Connect to BaseX server
-session = BaseXClient.Session('localhost', 1984, 'admin', 'hej123')
-
 @app.route('/')
 def index():
     return render_template('index.html')
+
+# Connect to BaseX server
+session = BaseXClient.Session('localhost', 1984, 'admin', 'hej123')
+
+def add_xml_data_to_database(database_name, document_name, xml_data):
+    # Connect to BaseX server
+
+    try:
+        # Open the existing database or create a new one if it doesn't exist
+        session.execute("OPEN " + database_name)
+
+        # Add the XML data to the database with its own name
+        session.add(document_name, xml_data)
+
+        return True, "File added to the database successfully"
+    except Exception as e:
+        return False, "Error adding file to the database: " + str(e)
+    finally:
+        # Close the session
+        session.close()
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -34,12 +51,12 @@ def upload_file():
             xml_data = file.read()
 
         # Add the XML data to the BaseX database
-        try:
-            session.add(filename, xml_data)
-            message = 'File uploaded and added to the database successfully'
+        success, message = add_xml_data_to_database("db2", filename, xml_data)
+        if success:
+            os.remove(file_path)  # Remove the uploaded file after adding to the database
             return {'message': message}, 200
-        except Exception as e:
-            return {'message': 'Error adding file to the database: ' + str(e)}, 500
+        else:
+            return {'message': message}, 500
     else:
         return {'message': 'Invalid file format, please upload an XML file'}, 400
     
@@ -59,6 +76,9 @@ def get_data():
         print(data)
         
         return jsonify(data),result
+
+
+
 if __name__ == '__main__':
     
     app.run(debug=True)
