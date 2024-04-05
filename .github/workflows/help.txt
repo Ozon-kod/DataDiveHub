@@ -1,0 +1,4 @@
+Create virtual environment using: python3 -m venv vevn
+Activate virtual environment: source venv/bin/activate
+Install dependencies: pip install -r requirements.txt
+Start application: python3 app.py
