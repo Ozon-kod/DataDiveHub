@@ -53,3 +53,74 @@
         </div>
       </div>
     </nav>
+    <div class="flex overflow-hidden bg-white pt-16">
+        <aside id="sidebar"
+          class="fixed hidden z-20 h-full top-0 left-0 pt-16 flex lg:flex flex-shrink-0 flex-col w-64 transition-width duration-75"
+          aria-label="Sidebar">
+          <div class="relative flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white pt-0">
+            <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+              <div class="flex-1 px-3 bg-white divide-y space-y-1">
+                <ul class="space-y-2 pb-2">
+                  <li>
+                    <a href="#"
+                      class="text-base text-gray-900 font-normal rounded-lg flex items-center p-2 hover:bg-gray-100 group">
+                      <svg class="w-6 h-6 text-gray-500 group-hover:text-gray-900 transition duration-75"
+                        fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+                        <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path>
+                      </svg>
+                      <span class="ml-3">Dashboard</span>
+                    </a>
+                  </li>
+                </ul>
+                <div class="space-y-2 pt-2">
+                  <a id="upload-link" href="#"
+                    class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
+                    <svg class="w-5 h-5 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
+                      aria-hidden="true" focusable="false" data-prefix="fas" data-icon="gem" role="img"
+                      xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                      <path fill="currentColor"
+                        d="M378.7 32H133.3L256 182.7L378.7 32zM512 192l-107.4-141.3L289.6 192H512zM107.4 50.67L0 192h222.4L107.4 50.67zM244.3 474.9C247.3 478.2 251.6 480 256 480s8.653-1.828 11.67-5.062L510.6 224H1.365L244.3 474.9z">
+                      </path>
+                    </svg>
+                    <span class="ml-4">Upload Data</span>
+                  </a>
+                  <a href="/download" download="dive_data.csv" target="_blank"
+                    class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
+                    <svg class="w-6 h-6 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
+                      fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                      <path fill-rule="evenodd"
+                        d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+                        clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-3">Download Data</span>
+                  </a>
+                  <button onclick="toggleModal()"
+                    class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
+                    <svg class="w-6 h-6 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
+                      fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <polygon points="2,12.9 21.7,33.1 29.3,26.3 22.4,13 " />
+                      <path d="M90.8,69.4c3.7,1,7.7-1.1,8.8-4.9c1-3.7-1.2-7.6-4.9-8.7L91.8,55L88,68.5L90.8,69.4z" />
+                      <path
+                        d="M88.5,54.1l-23.6-6.6c-1.6-0.4-3.1,0.5-3.6,2.1l-2.2,7.9c-0.4,1.6,0.4,3.1,2,3.6l23.6,6.6L88.5,54.1z" />
+                      <path d="M92.2,76.6c-1.8-1.7-4-3.1-6.6-3.8l-28.6-8L39.4,33.6c-0.9-1.6-2.4-2.9-4.4-3.4c-3.8-1.1-7.9,1.2-8.9,5
+                   c-0.5,1.8-0.3,3.7,0.6,5.3l22,38.6c0,0,1.8,2.9,6.3,4.4l40,11.2l18.5,18.8c0.6,0.7,1.4,1.2,2.4,1.4c2.8,0.8,5.7-0.9,6.5-3.7
+                   c0.5-2-0.1-4-1.5-5.3L92.2,76.6z" />
+                      <path d="M113.6,84.4l4.1,5.4l8.4-9.2l-7.1-4c0.7-5-2.4-9.9-7.4-11.2c-5.5-1.5-11.1,1.6-12.7,7.1c-1.6,5.5,1.7,11.1,7.1,12.7
+                   C108.7,85.9,111.3,85.5,113.6,84.4" />
+                    </svg>
+                    <span class="ml-3">Create Dive Data</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+        <div class="bg-gray-900 opacity-50 hidden fixed inset-0 z-10" id="sidebarBackdrop"></div>
+        <div id="main-content" class="h-full w-full bg-gray-50 relative overflow-y-auto lg:ml-64">
+          <div id="myModal" class="fixed inset-0 z-50 flex justify-center items-center bg-gray-900 bg-opacity-50 hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8 w-full sm:w-96">
+              <h2 class="text-xl font-semibold mb-4">Add Dive Data</h2>
+              <form id="diveForm">
+               
