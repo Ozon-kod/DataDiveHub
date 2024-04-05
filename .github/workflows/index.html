@@ -123,4 +123,46 @@
             <div class="bg-white rounded-lg shadow-lg p-8 w-full sm:w-96">
               <h2 class="text-xl font-semibold mb-4">Add Dive Data</h2>
               <form id="diveForm">
-               
+                <!-- Other form fields -->
+                <div class="mb-4">
+                  <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                  <input type="text" id="name" name="name"
+                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" />
+                </div>
+                <div class="mb-4">
+                  <label for="depth" class="block text-sm font-medium text-gray-700">Depth of Dive (meters)</label>
+                  <input type="number" id="depth" name="depth" inputmode="numeric" pattern="[0-9]*"
+                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" />
+                </div>
+                <div class="mb-4">
+                  <label for="duration" class="block text-sm font-medium text-gray-700">Duration of Dive (minutes)</label>
+                  <input type="number" id="duration" name="duration" inputmode="numeric" pattern="[0-9]*"
+                    class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" />
+                </div>
+                <button type="submit"
+                  class="mt-6 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                  Submit
+                </button>
+                </form>
+                <button onclick="toggleModal()"
+                class="mt-6 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                Close Modal
+                </button>
+                </div>
+                </div>
+                <div>
+                <div class="pt-6 px-4">
+                <div class="bg-white shadow rounded-lg p-4 sm:p-6 xl:p-8 2xl:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex-shrink-0">
+                    <span class="text-2xl sm:text-3xl leading-none font-bold text-gray-900">Dive Data Overview</span>
+                    <h3 class="text-base font-normal text-gray-500">
+                      Summary of Dive Details including Name, Date, and Site
+                    </h3>
+                  </div>
+                </div>
+                <!-- Creating Graph here -->
+              <canvas id="diveChart"></canvas>
+            </div>
+          </div>
+        </div>
