@@ -166,291 +166,155 @@
             </div>
           </div>
         </div>
-        
-              <!-- Table -->
-              <div class="flex flex-col">
-                <div class="overflow-x-auto sm:mx-0.5 lg:mx-0.5">
-                  <div class="py-2 inline-block min-w-full sm:px-6 lg:px-8">
-                    <div class="overflow-hidden">
-                      <table class="min-w-full">
-                        <thead class="bg-white border-b">
-                          <!-- Headers for tables -->
-                          <tr>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              id
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Site Name
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Environment
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Longitude
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Latitude
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Altitude
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <!-- iterating items and creating rows using embbeded python -->
-                          {% for item in dive_site_data %}
-                          <tr class="bg-gray-100 border-b">
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.id}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.site_name}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.environment}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.latitude}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.longitude}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.altitude}}
-                            </td>
-                          </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
+        <!-- Table#2 -->
+        <div class="pt-6 px-4">
+          <div class="bg-white shadow rounded-lg p-4 sm:p-6 xl:p-8 2xl:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex-shrink-0">
+                <span class="text-2xl sm:text-3xl leading-none font-bold text-gray-900">Diver Data Summary</span>
+                <h3 class="text-base font-normal text-gray-500">
+                  Summary of Diver Details including Name, Date, and Devices
+                  using table
+                </h3>
               </div>
             </div>
-          </div>        
-          <!-- Table#3 -->
-          <div class="pt-6 px-4">
-            <div class="bg-white shadow rounded-lg p-4 sm:p-6 xl:p-8 2xl:col-span-2">
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex-shrink-0">
-                  <span class="text-2xl sm:text-3xl leading-none font-bold text-gray-900">Dive User Data Summary</span>
-                  <h3 class="text-base font-normal text-gray-500">
-                    Summary of Dive User Details including Name, Manufacturer
-                    and Date using table
-                  </h3>
-                </div>
-              </div>
-              <!-- Table -->
-              <div class="flex flex-col">
-                <div class="overflow-x-auto sm:mx-0.5 lg:mx-0.5">
-                  <div class="py-2 inline-block min-w-full sm:px-6 lg:px-8">
-                    <div class="overflow-hidden">
-                      <table class="min-w-full">
-                        <thead class="bg-white border-b">
-                          <!-- Headers for tables -->
-                          <tr>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              id
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Name
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Manufacturer Id
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Manufacturer Name
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Version
-                            </th>
-                            <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
-                              Date
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <!-- iterating items and creating rows using embbeded python -->
-                          {% for item in dive_user %}
-                          <tr class="bg-gray-100 border-b">
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.id}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.name}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.manufacturer_id}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.manufacuter_name}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.version}}
-                            </td>
-                            <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
-                              {{item.date}}
-                            </td>
-                          </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    </div>
+            <!-- Table -->
+            <div class="flex flex-col">
+              <div class="overflow-x-auto sm:mx-0.5 lg:mx-0.5">
+                <div class="py-2 inline-block min-w-full sm:px-6 lg:px-8">
+                  <div class="overflow-hidden">
+                    <table class="min-w-full">
+                      <thead class="bg-white border-b">
+                        <!-- Headers for tables -->
+                        <tr>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            id
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            User Type
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            First Name
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Last Name
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Device Id
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Device Name
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Device Model
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- iterating items and creating rows using embbeded python -->
+                        {% for item in diver_data %}
+                        <tr class="bg-gray-100 border-b">
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.id}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.user_type}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.first_name}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.last_name}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.equipment_device_id}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.equipment_device_name}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.equipment_device_model}}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <!-- Footer of application  -->
-          <footer class="">
-            <p class="text-center text-sm text-gray-500 my-10">
-              &copy; 2024
-              <a href="#" class="hover:underline" target="_blank">Dive Data</a>.
-              All rights reserved.
-            </p>
-          </footer>
         </div>
-      </div>
-      <!-- Helping script for charts and button -->
-      <script async defer src="https://buttons.github.io/buttons.js"></script>
-      <script src="https://demo.themesberg.com/windster/app.bundle.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
-    </div>
-  </body>
-  <script>
-    // The function which is below is append the xml file into form data then invoke /upload route.
-    document
-      .getElementById("upload-link")
-      .addEventListener("click", function (event) {
-        //when we click on button then the file is inputed and then it is posted using formData to backend
-        event.preventDefault();
-        let input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".xml";
-        input.addEventListener("change", function () {
-          let file = this.files[0];
-          if (file) {
-            let formData = new FormData();
-            formData.append("xmlFile", file);
-            fetch("/upload", {
-              method: "POST",
-              body: formData,
-            })
-              .then((response) => response.json())
-              .then((data) => {
-                window.location.reload();
-              })
-              .catch((error) => {
-                console.error("Error:", error);
-              });
-          }
-        });
-        input.click();
-      });
-  </script>
-  <script>
-    // we get data from backend here and map data on chart as welll as map data on mapbpx
-    let diveData = {{ dive_data| tojson | safe }};
-    let diveSite = {{ dive_site_data| tojson | safe}};
-    // we get dive.depth here
-    let diveDepths = diveData.map(function (dive) {
-      return dive.depth;
-    });
-    // getting dive.time here from response
-    let diveTimes = diveData.map(function (dive) {
-      return dive.divetime;
-    });
-  
-    let ctx = document.getElementById("diveChart").getContext("2d");
-    const data = {
-      labels: diveTimes,
-      datasets: [
-        {
-          label: "Dive Depth per Unit Time",
-          data: diveDepths,
-          backgroundColor: "rgba(255,255,255,255)",
-          borderColor: "rgba(54,162,235,1)",
-          borderWidth: 1,
-          fill: true,
-        },
-      ],
-    }
-    const colorArea = {
-      id: 'colorArea',
-      beforeDraw(chart, args, plugins) {
-        const { ctx, chartArea: { top, bottom, left, right, width, height } } = chart;
-        ctx.save();
-        ctx.fillStyle = 'rgba(54,162,235,0.2)';
-        ctx.fillRect(left, top, width, height);
-        // ctx.fillRect(0, 0, chart.width, chart.height);
-        ctx.restore();
-  
-      }
-    }
-    let chart = new Chart(ctx, {
-      type: "line",
-      data: data,
-      options: {
-        scales: {
-          yAxes: [
-            {
-              scaleLabel: {
-                display: true,
-                labelString: "Dive Depth",
-              },
-            },
-          ],
-          xAxes: [
-            {
-              type: "linear",
-              position: "bottom",
-              scaleLabel: {
-                display: true,
-                labelString: "Dive Time",
-              },
-            },
-          ],
-        },
-        legend: {
-          display: true, // Show legend
-          position: 'top', // Change legend position to top
-        },
-      },
-      plugins: [colorArea]
-    });
-  
- 
-    function toggleModal() {
-      document.getElementById('myModal').classList.toggle('hidden')
-    }
-  
-    document.getElementById('diveForm').addEventListener('submit', function (event) {
-      event.preventDefault(); // Prevent default form submission
-  
-      const formData = new FormData(this); // Get form data
-  
-  
-      // Send form data using fetch
-      fetch('/create-dive', {
-        method: 'POST',
-        body: formData
-      })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Handle the response data
-          console.log('Success:', data);
-        })
-        .catch(error => {
-          // Handle errors
-          console.error('Error:', error);
-        });
-    });
-  </script>
-  
-  </html>
+        <!-- Table#3 -->
+        <div class="pt-6 px-4">
+          <div class="bg-white shadow rounded-lg p-4 sm:p-6 xl:p-8 2xl:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex-shrink-0">
+                <span class="text-2xl sm:text-3xl leading-none font-bold text-gray-900">Dive User Data Summary</span>
+                <h3 class="text-base font-normal text-gray-500">
+                  Summary of Dive User Details including Name, Manufacturer
+                  and Date using table
+                </h3>
+              </div>
+            </div>
+            <!-- Table -->
+            <div class="flex flex-col">
+              <div class="overflow-x-auto sm:mx-0.5 lg:mx-0.5">
+                <div class="py-2 inline-block min-w-full sm:px-6 lg:px-8">
+                  <div class="overflow-hidden">
+                    <table class="min-w-full">
+                      <thead class="bg-white border-b">
+                        <!-- Headers for tables -->
+                        <tr>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            id
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Name
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Manufacturer Id
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Manufacturer Name
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Version
+                          </th>
+                          <th scope="col" class="text-sm font-medium text-gray-900 px-6 py-4 text-left">
+                            Date
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- iterating items and creating rows using embbeded python -->
+                        {% for item in dive_user %}
+                        <tr class="bg-gray-100 border-b">
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.id}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.name}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.manufacturer_id}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.manufacuter_name}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.version}}
+                          </td>
+                          <td class="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                            {{item.date}}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
