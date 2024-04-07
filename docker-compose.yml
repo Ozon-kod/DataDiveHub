@@ -2,17 +2,23 @@
 # docker compose up
 
 services:
+
+#todo: fix erno 111
   application:
-    build: .
+    build: ./
     depends_on:
       - database
-    
+
+    ports:
+    - "5000:5000"
+    restart: always 
 
   database:
+    #
     image: basex/basexhttp:latest
-    ports: # Example port mapping, can be used later to connect from application like: database:8000
+    ports: 
       - "1984:1984"
-  
+    restart: always
       
 
 volumes:
