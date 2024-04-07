@@ -4,16 +4,15 @@
 services:
   application:
     build: .
-    ports:
-      - "5000:5000"
+    depends_on:
+      - database
+    
 
   database:
     image: basex/basexhttp:latest
     ports: # Example port mapping, can be used later to connect from application like: database:8000
-      - "1984:5000"
-    environment:
-      - user=admin
-      - password=hej123
+      - "1984:1984"
+  
       
 
 volumes:

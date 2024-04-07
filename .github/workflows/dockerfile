@@ -3,16 +3,14 @@
 FROM python:3.12-alpine
 
 # Set the working directory
-WORKDIR /database
+WORKDIR /app
 
 # Copy requirements.txt
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /database
-
-
+COPY app.py .
 
 ENTRYPOINT [ "python3" ]
 CMD [ "app.py" ]
