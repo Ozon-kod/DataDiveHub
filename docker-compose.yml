@@ -5,21 +5,37 @@ services:
 
 #todo: fix erno 111
   application:
+
     build: ./
     depends_on:
-      - database
-
+      - basex
+    
     ports:
     - "5000:5000"
-    restart: always 
+    #restart: always 
 
-  database:
-    #
+
+
+  basex:
+    
     image: basex/basexhttp:latest
     ports: 
       - "1984:1984"
+      - "8984:8984"
     restart: always
+
+    environment:
+      - BASEX_USERNAME=admin
+      - BASEX_PASSWORD=hej123
+
+
+    volumes:
+      - basex-data:/basex/data
+      - basex-repo:/basex/repo
+
       
 
+
 volumes:
-  db-data:
+  basex-data:
+  basex-repo:
