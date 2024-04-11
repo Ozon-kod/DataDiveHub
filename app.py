@@ -1,105 +1,172 @@
-from flask import Flask, render_template, request,g,jsonify
-import sqlite3
-from bs4 import BeautifulSoup
-
+from flask import Flask, render_template, jsonify, request
+from BaseXClient import BaseXClient
 
 app = Flask(__name__)
 
-DATABASE="divedata2.db"
+# XQuery queries - used for retrieving the whole collection or show all files
+XqueryGetFileName = '''
+    for $file in db:list("dives")
+    return $file
+'''
 
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-    return db
+XqueryGetDiveName = """
+    for $file in collection("dives")
+    return $file//divesite/site/name/text()
+"""
 
-def create_table():
-    # Create a table if not exists
-    connection = get_db()
-    cursor = connection.cursor()
+#Basex connection, later change into public once dockered. But if you're running on your own computer cahnge the username aswell as admin
+#because these are my current settings. 
+app.config['BASEX_CONNECTION'] = {
+    'host': 'localhost',
+    'port': 1984,
+    'username': 'admin',
+    'password': '123'
+}
 
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS dives (
-        NAME TEXT,
-        DATE TEXT,
-        SITE_name TEXT
-    )
-    ''')
-    connection.commit()
+#Creating a session for each request, helped with running multiple queries
+def create_session():
+    connection = app.config['BASEX_CONNECTION']
+    session = BaseXClient.Session(connection['host'], connection['port'], connection['username'], connection['password'])
+    return session
 
-def insert_data_into_db(data):
-    # Insert data into the database
-    connection = get_db()
-    cursor = connection.cursor()
 
-    # insert_query = 'INSERT INTO your_table (NAME, Manufacturer_id, DATE, TIME, OWNER_id, DIVECOMPUTER_id, DIVECOMPUTER_name, DIVECOMPUTER_model, SITE_id, SITE_name, SITE_enviroment, LATITUDE, LONGITUDE, ALTITUDE INTEGER  ...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,...);'
-    # insert_query='INSERT INTO dives (NAME, DATE, SITE_name) VALUES(?,?,?)'
-    cursor.execute('''
-                   INSERT INTO dives (NAME, DATE, SITE_name) VALUES(?,?,?)
-                   ''',(data[0], data[1],data[2]))
-    connection.commit() 
+def close_session(session):
+    session.close()
 
-def remove_from_db (data):
-    connection=get_db()
-    cursor=connection.cursor()
-    cursor.execute('DELETE FROM dives WHERE rowid= (?)', (data,))
-    connection.commit()
+#Executes query, creates, and closes session
+def execute_query(query):
+    session = create_session()
+    result = session.query(query).execute()
+    close_session(session)
+    return result
 
+#Starter for choosing template html file
 @app.route('/')
-def index():
-    # Fetch data from the database
-    connection = get_db()
-    cursor = connection.cursor()
-    create_table()
-    cursor.execute("SELECT * FROM dives")
-    data_from_db = cursor.fetchall()
-
-    # Render the template and pass the data to it
-    return render_template('index.html', data=data_from_db)
+def start():
+    return render_template("upload.html")
 
 
+# Return file list
+@app.route('/get-file-list')
+def get_file_list():
+    results = execute_query(XqueryGetFileName)
+    return jsonify(results)
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    if 'xmlFile' in request.files:
-        xml_file = request.files['xmlFile']
-        file_path = 'uploads/' + xml_file.filename
-        xml_file.save(file_path)
 
-        # Parse the XML file and extract data
-        data = parse_xml(file_path)
+# Return dive names list
+@app.route('/get-dive-name')
+def get_file_name():
+    results = execute_query(XqueryGetDiveName)
+    return jsonify(results)
 
-        # Create table if not exists
-        
-
-        # Insert data into the database
-        insert_data_into_db(data)
-
-        response_data = {
-            'status': 'success',
-            'message': 'File uploaded and data saved to the database successfully!'
-        }
-
+#Functions below are for specific files choosen from the dive list, they all create a new session and closes it
+# Request for getting specific file diving computer
+@app.route('/get-dive-computer', methods=['POST'])
+def fetch_dive_computer():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    XqueryGetDiveComputer = f"""
+    let $doc := db:open("dives", '{selected_filename}')
+    return $doc//diver/owner/equipment/divecomputer/model/text()
+    """
+    results = execute_query(XqueryGetDiveComputer)
+    print(results)
+    if results:
+        computer_makes = results.split('\r\n')
+        return jsonify(computer_makes[0])
     else:
-        response_data = {
-            'status': 'error',
-            'message': 'No file provided.'
-        }
-    return jsonify(response_data)
-    
+        return jsonify("Computer not found")
 
-def parse_xml(file_path):
-    with open(file_path, 'r') as f:
-        data = f.read()
-    
-    bs_data = BeautifulSoup(data, 'xml') 
-    bs_name = bs_data.find("name").get_text(strip=True)  # Extract text content
-    bs_date = bs_data.find("year").get_text(strip=True)  # Extract text content
-    bs_SITE_name = bs_data.find("environment").get_text(strip=True)  # Extract text content
 
-    data = [bs_name, bs_date, bs_SITE_name]
-    return data
+# Request for getting the duration for a file
+@app.route('/get-duration', methods=['POST'])
+def fetch_duration():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    XqueryGetDuration = f"""
+    let $doc := db:open("dives", '{selected_filename}')
+    return $doc//informationafterdive/diveduration/text()
+    """
+    results = execute_query(XqueryGetDuration)
+    durations = [float(duration) for duration in results.split()]
+    return jsonify(durations[0])
+
+
+# Request for getting the max depth of a file
+@app.route('/get-max-depth', methods=['POST'])
+def fetch_max_depth():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    XqueryGetGreatestDepth = f"""
+    let $fileName := '{selected_filename}'
+    let $doc := db:open("dives", $fileName)
+    return $doc//informationafterdive/greatestdepth/text()
+    """
+    results = execute_query(XqueryGetGreatestDepth)
+    depths = [float(depth) for depth in results.split()]
+    return jsonify(depths[0])
+
+
+# Request for getting the files date
+@app.route('/get-date', methods=['POST'])
+def fetch_date():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    #Using f string to choose what file
+    XqueryGetDate = f'''    
+    let $fileName := '{selected_filename}'
+    for $file in collection("dives")
+    where base-uri($file) = '/dives/{selected_filename}'
+    let $year := $file//generator//date/year
+    let $month := if (string-length($file//generator//date/month) = 1) then concat("0", $file//generator//date/month) else string($file//generator//date/month)
+    let $day := if (string-length($file//generator//date/day) = 1) then concat("0", $file//generator//date/day) else string($file//generator//date/day)
+    return concat($year, '-', $month, '-', $day)
+    '''
+    results = execute_query(XqueryGetDate)
+    if results:
+        dates = results.split()
+        return jsonify(dates[0])
+    else:
+        return jsonify("Date not found")
+
+
+# Upload route handler, calls data and adds it using function
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'xmlFile' not in request.files:
+        return {'message': 'No file part'}, 400
+
+    file = request.files['xmlFile']
+    if file.filename == '':
+        return {'message': 'No selected file'}, 400
+
+    if file and file.filename.endswith('.xml'):
+        filename = file.filename
+
+        # Call the function to add XML data to the database
+        success, message = add_xml_data_to_database("dives", filename, file.read())
+
+        if success:
+            return {'message': message}, 200
+        else:
+            return {'message': message}, 500
+    else:
+        return {'message': 'Invalid file format, please upload an XML file'}, 400
+
+
+# Function to add XML data to the database using db commands
+def add_xml_data_to_database(database_name, document_name, xml_data):
+    try:
+        # Open the existing database or create a new one if it doesn't exist
+        session = create_session()
+        session.execute("OPEN " + database_name)
+        # Add the XML data to the database with its own path
+        session.add(document_name, xml_data.decode())  # Convert bytes to string using decode()
+        close_session(session)
+        return True, "File added to the database successfully"
+    except Exception as e:
+        return False, "Error adding file to the database: " + str(e)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
