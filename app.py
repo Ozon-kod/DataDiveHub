@@ -14,6 +14,16 @@ XqueryGetDiveName = """
     return $file//divesite/site/name/text()
 """
 
+XqueryGetDiveCoordinatesLatitude = """
+    for $file in collection("dives")
+    return $file//divesite/site/geography/latitude/text()
+"""
+
+XqueryGetDiveCoordinatesLongitude = """
+    for $file in collection("dives")
+    return $file//divesite/site/geography/longitude/text()
+"""
+
 #Basex connection, later change into public once dockered. But if you're running on your own computer cahnge the username aswell as admin
 #because these are my current settings. 
 app.config['BASEX_CONNECTION'] = {
@@ -45,6 +55,17 @@ def execute_query(query):
 def start():
     return render_template("upload.html")
 
+#Return latitude
+@app.route('/get-latitude')
+def get_latitude():
+    results=execute_query(XqueryGetDiveCoordinatesLatitude)
+    return jsonify(results)
+
+#Return longitude
+@app.route('/get-longitude')
+def get_longitude():
+    results=execute_query(XqueryGetDiveCoordinatesLongitude)
+    return jsonify(results)
 
 # Return file list
 @app.route('/get-file-list')
@@ -70,7 +91,6 @@ def fetch_dive_computer():
     return $doc//diver/owner/equipment/divecomputer/model/text()
     """
     results = execute_query(XqueryGetDiveComputer)
-    print(results)
     if results:
         computer_makes = results.split('\r\n')
         return jsonify(computer_makes[0])

@@ -9,6 +9,8 @@
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <style>
 /* Chrome, Safari, Edge, Opera */
@@ -21,8 +23,8 @@ td {
     border: 1px solid #dddddd;
     text-align: left;
     padding: 8px;
-    cursor: pointer; /* Add cursor pointer for interaction */
-    width: auto; /* Set width to adjust based on content */
+    cursor: pointer; 
+    width: auto; 
 }
 
 th {
@@ -30,7 +32,7 @@ th {
 }
 
 tr:hover {
-    background-color: #f5f5f5; /* Colour lower when hovering */
+    background-color: #f5f5f5; 
 }
 
 table {
@@ -41,8 +43,12 @@ table {
 <!-- Style for the dive overview--><style>
     .canvas-container {
         display: none;
-        width: calc(100% - 340px); /* Adjust width to cover the remaining screen width */
-        float: right; /* Float the canvas container to the right */
+        position: absolute;
+        top: 90%; /* Position below the map */
+        left: 320px;
+        right: 0;
+        height: auto; 
+        width: calc(100% - 340px); /
     }
 
     /* Styles for the canvas and table containers */
@@ -59,7 +65,7 @@ table {
         height: 200px;
     }
 
-    /* Additional styles for better appearance */
+    
     .title {
         font-size: 24px;
         font-weight: bold;
@@ -74,6 +80,26 @@ table {
         margin-bottom: 20px;
     }
 </style>
+<!-- Style for the map --><style>
+  #map-container {
+    position: absolute;
+    top: 10%;
+    left: 320px; /* Adjust the distance from the left side to match the width of the dashboard */
+    right: 0;
+    bottom: 0;
+    z-index: 10; 
+  }
+  
+  #map {
+      height: 80%; 
+      width: 77.5%; 
+  }
+  /* Increase font size of Leaflet map labels */
+  .leaflet-container .leaflet-pane .leaflet-label {
+          font-size: 64px; /* Dont think this works, cahnge later */
+      }
+</style>
+
 <body>
   <div>
     <!-- Navbar and side bar -->
@@ -150,22 +176,6 @@ table {
                     </svg>
                     <span class="ml-3">Download Data</span>
                   </a>
-                  <button onclick="toggleModal()"
-                    class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
-                    <svg class="w-6 h-6 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
-                      fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <polygon points="2,12.9 21.7,33.1 29.3,26.3 22.4,13 " />
-                      <path d="M90.8,69.4c3.7,1,7.7-1.1,8.8-4.9c1-3.7-1.2-7.6-4.9-8.7L91.8,55L88,68.5L90.8,69.4z" />
-                      <path
-                        d="M88.5,54.1l-23.6-6.6c-1.6-0.4-3.1,0.5-3.6,2.1l-2.2,7.9c-0.4,1.6,0.4,3.1,2,3.6l23.6,6.6L88.5,54.1z" />
-                      <path d="M92.2,76.6c-1.8-1.7-4-3.1-6.6-3.8l-28.6-8L39.4,33.6c-0.9-1.6-2.4-2.9-4.4-3.4c-3.8-1.1-7.9,1.2-8.9,5
-                   c-0.5,1.8-0.3,3.7,0.6,5.3l22,38.6c0,0,1.8,2.9,6.3,4.4l40,11.2l18.5,18.8c0.6,0.7,1.4,1.2,2.4,1.4c2.8,0.8,5.7-0.9,6.5-3.7
-                   c0.5-2-0.1-4-1.5-5.3L92.2,76.6z" />
-                      <path d="M113.6,84.4l4.1,5.4l8.4-9.2l-7.1-4c0.7-5-2.4-9.9-7.4-11.2c-5.5-1.5-11.1,1.6-12.7,7.1c-1.6,5.5,1.7,11.1,7.1,12.7
-                   C108.7,85.9,111.3,85.5,113.6,84.4" />
-                    </svg>
-                    <span class="ml-3">Create Dive Data</span>
-                  </button>
                 </div>
                   <table>
                       <thead>
@@ -181,11 +191,12 @@ table {
             </div>
           </div>
         </aside>
-        </div>
-        <body>
+        <div id="map-container" class="h-full w-full">
+            <div id="map"></div>
+          </div>
             <div class="canvas-container container">
                 <div class="title">Dive Data Overview</div>
-                <div class="subtitle">Summary of Dive Details , Dive Site, Dive computer, Duration, Max Depth, date</div>
+                <div class="subtitle">Summary of Dive Details , Dive Site, Dive computer, Duration(s), Max Depth(m), Date</div>
                 <!-- Table row -->
                 <table>
                     <tr>
@@ -205,9 +216,70 @@ table {
                 </table>
                 <canvas id="diveTableSummary"></canvas>
             </div>
+        </div>
     </div>
     
     <!--JS SCRIPTs-->
+
+<!-- Map script --> <script>
+    
+    // Define the maximum bounds for the smap
+    var maxBounds = [
+        [90, -180], // North West
+        [-90, 180]  // South East
+    ];
+
+// Initialize the Leaflet map with maximum zoom level and max bounds
+    var map = L.map('map', {
+        center: [51.505, -0.09],
+        zoom: 4,
+        maxBounds: maxBounds
+    });
+    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+        attribution: '© Diving Data Hub',
+        maxZoom: 18,
+        id: 'mapbox/streets-v11', // Use the Mapbox streets-v11 style for English labels
+        accessToken: 'pk.eyJ1IjoiYWdnZWthZ2dlMTAwIiwiYSI6ImNsc3ZvbDJyMjBrcXUyaW8xdjUyZHVyYmQifQ.6taN-WJRikR-pfXQdPzI8A' // Replace with your Mapbox access token
+    }).addTo(map);
+
+ // Fetch latitude
+fetch('/get-latitude')
+  .then(response => response.text())
+  .then(latitude => {
+    // Fetch longitude
+    fetch('/get-longitude')
+      .then(response => response.text())
+      .then(longitude => {
+        // Split latitude and longitude strings into arrays
+        latitude= latitude.slice(1,-2);
+        longitude= longitude.slice(1,-2);
+        const latitudeArray = latitude.split('\\r\\n');
+        const longitudeArray = longitude.split('\\r\\n');
+        
+        // Assuming both latitude and longitude arrays have the same length
+        for (let i = 0; i < latitudeArray.length; i++) {
+          // Convert latitude and longitude to floating-point numbers
+          const lat = parseFloat(latitudeArray[i]);
+          const lng = parseFloat(longitudeArray[i]);
+
+          // Create marker and add it to the map
+          var marker = L.marker([lat, lng]).addTo(map);
+          // Optionally, bind a popup to the marker
+          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng).openPopup();
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching longitude:', error);
+      });
+  })
+  .catch(error => {
+    console.error('Error fetching latitude:', error);
+  });
+
+      
+
+
+</script>
 
 <!-- Fetch get-dive-name --><script>
     fetch('/get-dive-name')
@@ -264,6 +336,7 @@ table {
 
                 // Fetch all values using the reusable function (fetchData)
                 fetchData('/get-dive-computer', selectedFileName, data => {
+                    data=data.slice(1,-2);
                     document.getElementById('diveComputerType').textContent = data;
                 });
 
@@ -276,6 +349,7 @@ table {
                 });
 
                 fetchData('/get-date', selectedFileName, data => {
+                    data=data.slice(1,-2);
                     document.getElementById('diveDateValue').textContent = data;
                 });
             })
