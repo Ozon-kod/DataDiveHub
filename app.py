@@ -16,7 +16,7 @@ XqueryGetDiveName = """
 
 #Basex connection, later change into public once dockered. But if you're running on your own computer cahnge the username aswell as admin
 #because these are my current settings. 
-app.config['BASEX_CONNECTION'] = {
+app.config['BASEX_CONNECTION'] = {asdflkj
     'host': 'localhost',
     'port': 1984,
     'username': 'admin',
