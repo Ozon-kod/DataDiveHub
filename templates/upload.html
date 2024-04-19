@@ -268,7 +268,7 @@ table {
                   const waypoints = timeData.map((time, index) => ({
                       time: time,
                       depth: invertedDepthData[index],
-                      temp: tempData[index],
+                      temp: tempData[index], // Include temperature as an attribute
                   }));
 
                   // Sort the waypoints by time 
@@ -284,12 +284,10 @@ table {
                       labels: sortedTimeData, // time on x-axis
                       datasets: [
                           {
-                              label: 'Depth',
                               data: sortedDepthData,
-                              
                               borderColor: 'rgba(173, 216, 230, 0.8)',
-                              backgroundColor: 'rgba(173, 216, 230, 0.4)', 
-                              yAxisID: 'depth-y-axis', // Assign y-axis ID for depth data
+                              backgroundColor: 'rgba(173, 216, 230, 0.4)',
+                              temperature: sortedTempData, //add temp as a dataset to later use it
                           },
                       ],
                   };
@@ -303,7 +301,7 @@ table {
                               x: {
                                   title: {
                                       display: true,
-                                      text: 'Time',
+                                      text: 'Divetime',
                                   },
                               },
                               y: {
@@ -311,6 +309,7 @@ table {
                                       display: true,
                                       text: 'Depth',
                                   },
+                                  beginAtZero: true, // Start the axis at zero
                               },
                           },
                           elements: {
@@ -323,9 +322,26 @@ table {
                               filler: {
                                   propagate: false,
                               },
-                              tooltip: {  
+                              tooltip: {
                                   mode: 'index',
                                   intersect: false,
+                                  callbacks: {
+                                      // Custom tooltip function to include temperature
+                                      label: function (context) {
+                                          let label = context.dataset.label || '';
+
+                                          if (context.parsed.y !== null) {
+                                              label += '\nDepth: ' + context.parsed.y*(-1) + ' m';
+                                          }
+
+                                          // Include temperature 
+                                          if (context.dataset.temperature !== undefined) {
+                                              label += '\nTemperature: ' + context.dataset.temperature[context.dataIndex] + ' °C';
+                                          }
+
+                                          return label;
+                                      },
+                                  },
                               },
                           },
                           pointRadius: 0, // Hide data points
@@ -333,7 +349,7 @@ table {
                       },
                   };
 
-                  // Create the chart
+                  //chart
                   const myChart = new Chart(
                       document.getElementById('diveProfile'),
                       config
@@ -341,7 +357,6 @@ table {
               });
           });
       });
-
 
       document.querySelector('#map-container').style.display= 'none';
       document.querySelector('.graph-container').style.display = 'block';
@@ -510,9 +525,6 @@ function handleMarkerClick(clickedMarkerIndex) {
     });
 
 </script>
-
-
-
 </body>
 
 </html>
