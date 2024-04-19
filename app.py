@@ -149,6 +149,58 @@ def fetch_date():
     else:
         return jsonify("Date not found")
 
+#Waypoints below, to create graph, routes for depth, time and temp.
+@app.route('/dive-depth', methods=['POST'])
+def fetch_wDepth():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    #Using f string to choose what file
+    XqueryGetDiveDepth = f"""  
+    let $fileName := '{selected_filename}'
+    let $doc := db:open("dives", $fileName)
+    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/depth/text()
+    """
+    results = execute_query(XqueryGetDiveDepth)
+    if results:
+        depths = results.split()
+        return jsonify(depths)
+    else:
+        return jsonify("No depths found (wp)")
+    
+@app.route('/dive-time', methods=['POST'])
+def fetch_wDiveTime():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    #Using f string to choose what file
+    XqueryGetDiveTime = f"""  
+    let $fileName := '{selected_filename}'
+    let $doc := db:open("dives", $fileName)
+    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/divetime/text()
+    """
+    results = execute_query(XqueryGetDiveTime)
+    if results:
+        times = results.split()
+        return jsonify(times)
+    else:
+        return jsonify("No times found (wp)")
+
+@app.route('/dive-temperature', methods=['POST'])
+def fetch_wDiveTemp():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    #Using f string to choose what file
+    XqueryGetDiveTemp = f"""  
+    let $fileName := '{selected_filename}'
+    let $doc := db:open("dives", $fileName)
+    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/temperature/text()
+    """
+    results = execute_query(XqueryGetDiveTemp)
+    if results:
+        temps = results.split()
+        return jsonify(temps)
+    else:
+        return jsonify("No temps found (wp)")
+
 
 # Upload route handler, calls data and adds it using function
 @app.route('/upload', methods=['POST'])
