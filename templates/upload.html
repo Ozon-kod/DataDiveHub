@@ -391,34 +391,16 @@ let markers = [];
 fetch('/get-latitude')
   .then(response => response.text())
   .then(latitude => {
-    fetch('/get-longitude')
-      .then(response => response.text())
-      .then(longitude => {
-        // Split latitude and longitude strings into arrays
-        latitude = latitude.slice(1, -2);
-        longitude = longitude.slice(1, -2);
-        const latitudeArray = latitude.split('\\r\\n');
-        const longitudeArray = longitude.split('\\r\\n');
+    console.log(latitude);
+  })
+  .catch(error => {
+    console.error('Error fetching latitude:', error);
+  });
 
-        // latitude and longitude ahs the same lenth so its ok
-        for (let i = 0; i < latitudeArray.length; i++) {
-          // Convert latitude and longitude to floating-point numbers
-          const lat = parseFloat(latitudeArray[i]);
-          const lng = parseFloat(longitudeArray[i]);
-
-          // Create marker
-          let marker = L.marker([lat, lng]).addTo(map);
-          markers.push(marker);
-          
-          // Add click event listener to the marker
-          marker.on('click', function (e) {
-            handleMarkerClick(markers.indexOf(marker));
-          });
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching longitude:', error);
-      });
+  fetch('/get-longitude')
+  .then(response => response.text())
+  .then(longitude => {
+    console.log(longitude);
   })
   .catch(error => {
     console.error('Error fetching latitude:', error);

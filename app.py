@@ -1,71 +1,53 @@
+import requests
 from flask import Flask, render_template, jsonify, request
-from BaseXClient import BaseXClient
 
 app = Flask(__name__)
 
-# XQuery queries - used for retrieving the whole collection or show all files
-XqueryGetFileName = '''
-    for $file in db:list("dives")
-    return $file
-'''
+# eXist-db connection settings
+EXIST_DB_URL = 'http://localhost:8080/exist/rest'
+EXIST_DB_USER = 'admin'
+EXIST_DB_PASSWORD = '123'
 
-XqueryGetDiveName = """
-    for $file in collection("dives")
-    return $file//divesite/site/name/text()
-"""
+# Example XQuery queries
+XqueryGetFileName = 'collection("dives")'
+XqueryGetDiveName = 'collection("dives")//divesite/site/name/text()'
+XqueryGetDiveCoordinatesLatitude = 'for $file in collection("dives")//divesite/site/geography/latitude/text()'
+XqueryGetDiveCoordinatesLongitude = 'collection("dives")//divesite/site/geography/longitude/text()'
 
-XqueryGetDiveCoordinatesLatitude = """
-    for $file in collection("dives")
-    return $file//divesite/site/geography/latitude/text()
-"""
-
-XqueryGetDiveCoordinatesLongitude = """
-    for $file in collection("dives")
-    return $file//divesite/site/geography/longitude/text()
-"""
-
-#Basex connection, later change into public once dockered. But if you're running on your own computer cahnge the username aswell as admin
-#because these are my current settings. 
-app.config['BASEX_CONNECTION'] = {
-    'host': 'localhost',
-    'port': 1984,
-    'username': 'admin',
-    'password': '123'
-}
-
-#Creating a session for each request, helped with running multiple queries
-def create_session():
-    connection = app.config['BASEX_CONNECTION']
-    session = BaseXClient.Session(connection['host'], connection['port'], connection['username'], connection['password'])
-    return session
-
-
-def close_session(session):
-    session.close()
-
-#Executes query, creates, and closes session
+# Function to execute XQuery queries
 def execute_query(query):
-    session = create_session()
-    result = session.query(query).execute()
-    close_session(session)
-    return result
+    auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
+    params = {'_query': query}
+    response = requests.get(f'{EXIST_DB_URL}/db', params=params, auth=auth)
+    if response.status_code == 200:
+        return response.text
+    else:
+        return None
 
-#Starter for choosing template html file
+# Starter for choosing template html file
 @app.route('/')
 def start():
     return render_template("upload.html")
 
-#Return latitude
+# Return latitude
 @app.route('/get-latitude')
 def get_latitude():
-    results=execute_query(XqueryGetDiveCoordinatesLatitude)
-    return jsonify(results)
+    results = execute_query(XqueryGetDiveCoordinatesLatitude)
+    start_index = results.find(">") + 1
+    end_index = results.find("<", start_index)
+    # Extract the substring containing the coordinates
+    latitude = results[start_index:end_index]
+    return latitude
 
-#Return longitude
+# Return longitude
 @app.route('/get-longitude')
 def get_longitude():
-    results=execute_query(XqueryGetDiveCoordinatesLongitude)
-    return jsonify(results)
+    results = execute_query(XqueryGetDiveCoordinatesLongitude)
+    start_index = results.find(">") + 1
+    end_index = results.find("<", start_index)
+    # Extract the substring containing the coordinates
+    longitude = results[start_index:end_index]
+    return longitude
 
 # Return file list
 @app.route('/get-file-list')
@@ -73,68 +55,61 @@ def get_file_list():
     results = execute_query(XqueryGetFileName)
     return jsonify(results)
 
-
 # Return dive names list
 @app.route('/get-dive-name')
-def get_file_name():
+def get_dive_name():
     results = execute_query(XqueryGetDiveName)
     return jsonify(results)
 
-#Functions below are for specific files choosen from the dive list, they all create a new session and closes it
 # Request for getting specific file diving computer
 @app.route('/get-dive-computer', methods=['POST'])
 def fetch_dive_computer():
     data = request.get_json()
     selected_filename = data['fileName']
-    XqueryGetDiveComputer = f"""
-    let $doc := db:open("dives", '{selected_filename}')
+    XqueryGetDiveComputer = f'''
+    let $doc := db:open("dives", "{selected_filename}")
     return $doc//diver/owner/equipment/divecomputer/model/text()
-    """
+    '''
     results = execute_query(XqueryGetDiveComputer)
     if results:
-        computer_makes = results.split('\r\n')
-        return jsonify(computer_makes[0])
+        return jsonify(results.split('\r\n')[0])
     else:
         return jsonify("Computer not found")
-
 
 # Request for getting the duration for a file
 @app.route('/get-duration', methods=['POST'])
 def fetch_duration():
     data = request.get_json()
     selected_filename = data['fileName']
-    XqueryGetDuration = f"""
-    let $doc := db:open("dives", '{selected_filename}')
+    XqueryGetDuration = f'''
+    let $doc := db:open("dives", "{selected_filename}")
     return $doc//informationafterdive/diveduration/text()
-    """
+    '''
     results = execute_query(XqueryGetDuration)
     durations = [float(duration) for duration in results.split()]
     return jsonify(durations[0])
-
 
 # Request for getting the max depth of a file
 @app.route('/get-max-depth', methods=['POST'])
 def fetch_max_depth():
     data = request.get_json()
     selected_filename = data['fileName']
-    XqueryGetGreatestDepth = f"""
-    let $fileName := '{selected_filename}'
+    XqueryGetGreatestDepth = f'''
+    let $fileName := "{selected_filename}"
     let $doc := db:open("dives", $fileName)
     return $doc//informationafterdive/greatestdepth/text()
-    """
+    '''
     results = execute_query(XqueryGetGreatestDepth)
     depths = [float(depth) for depth in results.split()]
     return jsonify(depths[0])
-
 
 # Request for getting the files date
 @app.route('/get-date', methods=['POST'])
 def fetch_date():
     data = request.get_json()
     selected_filename = data['fileName']
-    #Using f string to choose what file
-    XqueryGetDate = f'''    
-    let $fileName := '{selected_filename}'
+    XqueryGetDate = f'''
+    let $fileName := "{selected_filename}"
     for $file in collection("dives")
     where base-uri($file) = '/dives/{selected_filename}'
     let $year := $file//generator//date/year
@@ -144,63 +119,59 @@ def fetch_date():
     '''
     results = execute_query(XqueryGetDate)
     if results:
-        dates = results.split()
-        return jsonify(dates[0])
+        return jsonify(results.split()[0])
     else:
         return jsonify("Date not found")
 
-#Waypoints below, to create graph, routes for depth, time and temp.
+# Waypoints below, to create graph, routes for depth, time and temp.
 @app.route('/dive-depth', methods=['POST'])
 def fetch_wDepth():
     data = request.get_json()
     selected_filename = data['fileName']
-    #Using f string to choose what file
-    XqueryGetDiveDepth = f"""  
-    let $fileName := '{selected_filename}'
+    XqueryGetDiveDepth = f'''
+    let $fileName := "{selected_filename}"
     let $doc := db:open("dives", $fileName)
     return $doc//profiledata/repetitiongroup/dive/samples/waypoint/depth/text()
-    """
+    '''
     results = execute_query(XqueryGetDiveDepth)
-    if results:
-        depths = results.split()
-        return jsonify(depths)
-    else:
-        return jsonify("No depths found (wp)")
-    
+    return jsonify(results.split())
+
 @app.route('/dive-time', methods=['POST'])
 def fetch_wDiveTime():
     data = request.get_json()
     selected_filename = data['fileName']
-    #Using f string to choose what file
-    XqueryGetDiveTime = f"""  
-    let $fileName := '{selected_filename}'
+    XqueryGetDiveTime = f'''
+    let $fileName := "{selected_filename}"
     let $doc := db:open("dives", $fileName)
     return $doc//profiledata/repetitiongroup/dive/samples/waypoint/divetime/text()
-    """
+    '''
     results = execute_query(XqueryGetDiveTime)
-    if results:
-        times = results.split()
-        return jsonify(times)
-    else:
-        return jsonify("No times found (wp)")
+    return jsonify(results.split())
 
 @app.route('/dive-temperature', methods=['POST'])
 def fetch_wDiveTemp():
     data = request.get_json()
     selected_filename = data['fileName']
-    #Using f string to choose what file
-    XqueryGetDiveTemp = f"""  
-    let $fileName := '{selected_filename}'
+    XqueryGetDiveTemp = f'''
+    let $fileName := "{selected_filename}"
     let $doc := db:open("dives", $fileName)
     return $doc//profiledata/repetitiongroup/dive/samples/waypoint/temperature/text()
-    """
+    '''
     results = execute_query(XqueryGetDiveTemp)
-    if results:
-        temps = results.split()
-        return jsonify(temps)
-    else:
-        return jsonify("No temps found (wp)")
+    return jsonify(results.split())
 
+
+# Function to add XML data to the eXist-db database using REST API
+def add_xml_data_to_database(database_name, document_name, xml_data):
+    url = f"{EXIST_DB_URL}/db/{database_name}/{document_name}"
+    auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
+    headers = {'Content-Type': 'application/xml'}
+    try:
+        response = requests.put(url, auth=auth, data=xml_data, headers=headers)
+        response.raise_for_status()
+        return True, "File added to the database successfully"
+    except requests.exceptions.RequestException as e:
+        return False, f"Error adding file to the database: {e}"
 
 # Upload route handler, calls data and adds it using function
 @app.route('/upload', methods=['POST'])
@@ -224,20 +195,6 @@ def upload_file():
             return {'message': message}, 500
     else:
         return {'message': 'Invalid file format, please upload an XML file'}, 400
-
-
-# Function to add XML data to the database using db commands
-def add_xml_data_to_database(database_name, document_name, xml_data):
-    try:
-        # Open the existing database or create a new one if it doesn't exist
-        session = create_session()
-        session.execute("OPEN " + database_name)
-        # Add the XML data to the database with its own path
-        session.add(document_name, xml_data.decode())  # Convert bytes to string using decode()
-        close_session(session)
-        return True, "File added to the database successfully"
-    except Exception as e:
-        return False, "Error adding file to the database: " + str(e)
 
 
 if __name__ == '__main__':
