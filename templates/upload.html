@@ -241,7 +241,7 @@ table {
     fetch('/get-file-list')
      .then(response => response.text())
      .then(fileListString => {
-      fileListString = fileListString.slice(1, -2);
+      fileListString = fileListString.slice(2, -3);
 
       // Split the string into an array of file names
       const fileList = fileListString.split('\\r\\n').filter(fileName => fileName.trim() !== '');
@@ -251,13 +251,13 @@ table {
 
       // Fetch depth data
       fetchData('/dive-depth', selectedFileName, depthList => {
-          depthList = depthList.slice(1, -2).replace(/"/g, "").split(",");
+          depthList = depthList.slice(2, -3).replace(/"/g, "").split(",");
           // Fetch temperature data
           fetchData('/dive-temperature', selectedFileName, tempList => {
-              tempList = tempList.slice(1, -2).replace(/"/g, "").split(",");
+              tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");
               // Fetch time data
               fetchData('/dive-time', selectedFileName, timeList => {
-                  timeList = timeList.slice(1, -2).replace(/"/g, "").split(",");
+                  timeList = timeList.slice(2, -3).replace(/"/g, "").split(",");
 
                   // Convert the fetched data into arrays of numbers
                   const depthData = depthList.map(entry => parseFloat(entry.trim()));
@@ -387,24 +387,42 @@ table {
 // Array to store reference to which marker has been clicked
 let markers = [];
 
-// Fetch latitude and longitude
+  // Fetch latitude
 fetch('/get-latitude')
   .then(response => response.text())
   .then(latitude => {
-    console.log(latitude);
+    // Fetch longitude
+    fetch('/get-longitude')
+      .then(response => response.text())
+      .then(longitude => {
+        console.log(latitude);
+        // Split latitude and longitude strings into arrays
+        latitude= latitude.slice(2,-3);
+        longitude= longitude.slice(2,-3);
+        const latitudeArray = latitude.split(', ').map(Number);
+        const longitudeArray = longitude.split(', ').map(Number);
+
+        // Assuming both latitude and longitude arrays have the same length
+        for (let i = 0; i < latitudeArray.length; i++) {
+          // Convert latitude and longitude to floating-point numbers
+          const lat = parseFloat(latitudeArray[i]);
+          const lng = parseFloat(longitudeArray[i]);
+          
+
+          // Create marker and add it to the map
+          var marker = L.marker([lat, lng]).addTo(map);
+          // Optionally, bind a popup to the marker
+          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng).openPopup();
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching longitude:', error);
+      });
   })
   .catch(error => {
     console.error('Error fetching latitude:', error);
   });
 
-  fetch('/get-longitude')
-  .then(response => response.text())
-  .then(longitude => {
-    console.log(longitude);
-  })
-  .catch(error => {
-    console.error('Error fetching latitude:', error);
-  });
 
 // Function to handle marker click event
 function handleMarkerClick(clickedMarkerIndex) {
@@ -426,7 +444,7 @@ function handleMarkerClick(clickedMarkerIndex) {
     fetch('/get-dive-name')
         .then(response => response.text())
         .then(data => { 
-            data = data.slice(1, -2);
+            data = data.slice(2, -3);
             let DiveIndex = 0; //File index/row index
             console.log('Data received:', data); // Log the data to the console
             const DiveNames = data.split('\\r\\n').filter(DiveName => DiveName.trim() !== '');

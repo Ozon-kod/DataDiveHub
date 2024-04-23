@@ -1,4 +1,4 @@
-import requests
+import requests, re, json
 from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
@@ -31,6 +31,31 @@ def execute_query(query):
     else:
         return None
 
+def extract_numbers_between_tags(xml_data, tag_name):
+    """
+    Extracts numbers between specified XML tags from XML data.
+    
+    Args:
+    xml_data: The XML data as a string.
+    tag_name: The name of the XML tag to extract numbers from.
+    
+    Returns:
+    list: List of numbers extracted from between specified XML tags.
+    """
+    # Find the indices of the first and last tag occurrences
+    start_tag = '<' + tag_name + '>'
+    end_tag = '</' + tag_name + '>'
+    start_index = xml_data.find(start_tag)
+    end_index = xml_data.rfind(end_tag)
+    # Extract the substring containing only specified tags
+    tag_data = xml_data[start_index:end_index+len(end_tag)]
+    # Regular expression to extract numbers between specified tags
+    numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
+    # Convert strings to floats
+    numbers = [float(number) for number in numbers]
+    json_data=json.dumps(numbers)
+    return json_data
+
 # Starter for choosing template html file
 @app.route('/')
 def start():
@@ -40,13 +65,15 @@ def start():
 @app.route('/get-latitude')
 def get_latitude():
     results = execute_query(XqueryGetDiveCoordinatesLatitude)
-    return results
+    latitude = extract_numbers_between_tags(results, 'latitude')
+    return jsonify(latitude)
 
 # Return longitude
 @app.route('/get-longitude')
 def get_longitude():
     results = execute_query(XqueryGetDiveCoordinatesLongitude)
-    return results
+    longitude = extract_numbers_between_tags(results, 'longitude')
+    return jsonify(longitude)
 
 # Return file list
 @app.route('/get-file-list')
