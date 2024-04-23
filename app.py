@@ -11,8 +11,15 @@ EXIST_DB_PASSWORD = '123'
 # Example XQuery queries
 XqueryGetFileName = 'collection("dives")'
 XqueryGetDiveName = 'collection("dives")//divesite/site/name/text()'
-XqueryGetDiveCoordinatesLatitude = 'for $file in collection("dives")//divesite/site/geography/latitude/text()'
-XqueryGetDiveCoordinatesLongitude = 'collection("dives")//divesite/site/geography/longitude/text()'
+
+XqueryGetDiveCoordinatesLatitude = """
+for $file in collection("dives")
+return $file//divesite/site/geography/latitude
+"""
+XqueryGetDiveCoordinatesLongitude = """
+for $file in collection("dives")
+return $file//divesite/site/geography/longitude
+"""
 
 # Function to execute XQuery queries
 def execute_query(query):
@@ -27,27 +34,19 @@ def execute_query(query):
 # Starter for choosing template html file
 @app.route('/')
 def start():
-    return render_template("upload.html")
+    return render_template("upload2.html")
 
 # Return latitude
 @app.route('/get-latitude')
 def get_latitude():
     results = execute_query(XqueryGetDiveCoordinatesLatitude)
-    start_index = results.find(">") + 1
-    end_index = results.find("<", start_index)
-    # Extract the substring containing the coordinates
-    latitude = results[start_index:end_index]
-    return latitude
+    return results
 
 # Return longitude
 @app.route('/get-longitude')
 def get_longitude():
     results = execute_query(XqueryGetDiveCoordinatesLongitude)
-    start_index = results.find(">") + 1
-    end_index = results.find("<", start_index)
-    # Extract the substring containing the coordinates
-    longitude = results[start_index:end_index]
-    return longitude
+    return results
 
 # Return file list
 @app.route('/get-file-list')
