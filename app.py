@@ -1,4 +1,4 @@
-import requests, re, json
+import requests, re
 from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
@@ -8,9 +8,16 @@ EXIST_DB_URL = 'http://localhost:8080/exist/rest'
 EXIST_DB_USER = 'admin'
 EXIST_DB_PASSWORD = '123'
 
-# Example XQuery queries
-XqueryGetFileName = 'collection("dives")'
-XqueryGetDiveName = 'collection("dives")//divesite/site/name/text()'
+# Collection xquerys (non file specific)
+XqueryGetFileName = """
+for $file in collection('/dives')
+return base-uri($file) 
+"""
+
+XqueryGetDiveName = """
+for $file in collection("dives")
+return $file//divesite/site/name
+"""
 
 XqueryGetDiveCoordinatesLatitude = """
 for $file in collection("dives")
@@ -51,10 +58,7 @@ def extract_numbers_between_tags(xml_data, tag_name):
     tag_data = xml_data[start_index:end_index+len(end_tag)]
     # Regular expression to extract numbers between specified tags
     numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
-    # Convert strings to floats
-    numbers = [float(number) for number in numbers]
-    json_data=json.dumps(numbers)
-    return json_data
+    return numbers
 
 # Starter for choosing template html file
 @app.route('/')
@@ -85,7 +89,8 @@ def get_file_list():
 @app.route('/get-dive-name')
 def get_dive_name():
     results = execute_query(XqueryGetDiveName)
-    return jsonify(results)
+    names = extract_numbers_between_tags(results, 'name')
+    return jsonify(names)
 
 # Request for getting specific file diving computer
 @app.route('/get-dive-computer', methods=['POST'])

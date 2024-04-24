@@ -374,7 +374,7 @@ table {
     var map = L.map('map').setView([51.505, -0.09], 13); // Initialize Leaflet map
     // Add Mapbox tile layer
     L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-            attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a>',
+            attribution: '© Diving Data Hub',
             maxZoom: 18,
             id: 'mapbox/outdoors-v12',
             tileSize: 512,
@@ -387,7 +387,7 @@ table {
 // Array to store reference to which marker has been clicked
 let markers = [];
 
-  // Fetch latitude
+// Fetch latitude
 fetch('/get-latitude')
   .then(response => response.text())
   .then(latitude => {
@@ -395,24 +395,30 @@ fetch('/get-latitude')
     fetch('/get-longitude')
       .then(response => response.text())
       .then(longitude => {
-        console.log(latitude);
         // Split latitude and longitude strings into arrays
-        latitude= latitude.slice(2,-3);
-        longitude= longitude.slice(2,-3);
-        const latitudeArray = latitude.split(', ').map(Number);
-        const longitudeArray = longitude.split(', ').map(Number);
-
+        const regex = /"([^"]+)"/g;
+        latitude = latitude.slice(2, -3);
+        longitude = longitude.slice(2, -3);
+        // Extract numbers and map them to floats
+        const latitudeArray = Array.from(latitude.matchAll(regex), match => parseFloat(match[1]));
+        const longitudeArray = Array.from(longitude.matchAll(regex), match => parseFloat(match[1]));
         // Assuming both latitude and longitude arrays have the same length
         for (let i = 0; i < latitudeArray.length; i++) {
           // Convert latitude and longitude to floating-point numbers
           const lat = parseFloat(latitudeArray[i]);
           const lng = parseFloat(longitudeArray[i]);
-          
 
           // Create marker and add it to the map
-          var marker = L.marker([lat, lng]).addTo(map);
-          // Optionally, bind a popup to the marker
+          let marker = L.marker([lat, lng]).addTo(map);
           marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng).openPopup();
+          markers.push(marker); // Push marker to list of markers
+          // Add click event listener to the marker
+          // Add click event listener to the marker
+          marker.on('click', function (e) {
+              console.log('Clicked marker:', marker); // Log the marker instance
+              console.log('Marker index:', markers.indexOf(marker)); // Log the marker index
+              handleMarkerClick(markers.indexOf(marker));
+          });
         }
       })
       .catch(error => {
@@ -424,8 +430,14 @@ fetch('/get-latitude')
   });
 
 
+
+
+
+
+
 // Function to handle marker click event
 function handleMarkerClick(clickedMarkerIndex) {
+    console.log(clickedMarkerIndex);
     const clickedMarker = markers[clickedMarkerIndex];
     const clickedLatlng = clickedMarker.getLatLng(); // Get latitude and longitude of clicked marker
     const nearbyDivesIndex = [];
@@ -439,17 +451,15 @@ function handleMarkerClick(clickedMarkerIndex) {
             nearbyDivesIndex.push(markers.indexOf(marker)+1); //Since the list uses index for 1-n and not 0-n
         }
     });
-    console.log(nearbyDivesIndex);
     // Fetch dive names and populate the dive list
     fetch('/get-dive-name')
         .then(response => response.text())
         .then(data => { 
             data = data.slice(2, -3);
             let DiveIndex = 0; //File index/row index
-            console.log('Data received:', data); // Log the data to the console
-            const DiveNames = data.split('\\r\\n').filter(DiveName => DiveName.trim() !== '');
+            const regex = /"([^"]+)"/g;
+            const DiveNames = Array.from(data.matchAll(regex), match => match[1]);
             const DiveListBody = document.getElementById('dive-list');
-            
             // Clear existing dive list
             DiveListBody.innerHTML = '';
             trueIndex = 0; //For keeping track of the actual index stored in the array
