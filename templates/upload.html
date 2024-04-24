@@ -251,9 +251,10 @@ table {
      .then(response => response.text())
      .then(fileListString => {
       fileListString = fileListString.slice(2, -3);
-
+      const regex = /"([^"]+)"/g;
       // Split the string into an array of file names
-      const fileList = fileListString.split('\\r\\n').filter(fileName => fileName.trim() !== '');
+      const fileList = Array.from(fileListString.matchAll(regex), match => (match[1]));
+      console.log(fileList);
       // Retrieve the file name using the index
       const selectedFileName = fileList[rowIndex];
       console.log('Selected file:', selectedFileName); // Log the selected file name
@@ -357,7 +358,6 @@ table {
                           fill: 'origin', // Fill area below the line
                       },
                   };
-
                   //chart
                   const myChart = new Chart(
                       document.getElementById('diveProfile'),
@@ -373,8 +373,7 @@ table {
 </script>
 
 <!-- Map script --> <script>
-    
-    
+  
     var maxBounds = [
         [90, -180], // North West
         [-90, 180]  // South East
@@ -388,7 +387,7 @@ table {
             id: 'mapbox/outdoors-v12',
             tileSize: 512,
             zoomOffset: -1,
-            maxBounds:maxBounds,
+            maxBounds: maxBounds,
             accessToken: 'pk.eyJ1IjoibWFjYW50b21hdG8iLCJhIjoiY2x2MG4xbmU5MWhiMDJpcnprazNhMHBueCJ9.6rufAEhCvcvJQD02SMqGoQ' // Replace with your Mapbox access token
       }).addTo(map);
 
@@ -419,13 +418,11 @@ fetch('/get-latitude')
 
           // Create marker and add it to the map
           let marker = L.marker([lat, lng]).addTo(map);
-          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng).openPopup();
+          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng + "<br>").openPopup();
           markers.push(marker); // Push marker to list of markers
           // Add click event listener to the marker
           // Add click event listener to the marker
           marker.on('click', function (e) {
-              console.log('Clicked marker:', marker); // Log the marker instance
-              console.log('Marker index:', markers.indexOf(marker)); // Log the marker index
               handleMarkerClick(markers.indexOf(marker));
           });
         }
@@ -518,16 +515,9 @@ function handleMarkerClick(clickedMarkerIndex) {
     }
     // Add event listener to the upload link
     document.getElementById('upload-link').addEventListener('click', function(event) {
-      event.preventDefault(); // Prevent the default action of the link
-      const diveComputerDropdown = document.getElementById('dive-computer-dropdown');
-      diveComputerDropdown.classList.remove('hidden');  // Show the dropdown if hidden
+        event.preventDefault(); // Prevent the default action of the link
+        triggerFileInput(); // Call the function to trigger file input click event
     });
-
-    document.getElementById('diveComputer').addEventListener('change', function() {
-    if (this.value) {  // Only trigger file input if a dive computer is selected
-        const fileInput = document.getElementById('fileInput');
-        fileInput.click(); // Trigger click event on file input
-    }})
 
     // Event listener to handle file selection
     document.getElementById('fileInput').addEventListener('change', function() {

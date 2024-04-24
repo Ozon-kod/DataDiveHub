@@ -5,12 +5,12 @@ app = Flask(__name__)
 
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
-EXIST_DB_USER = 'admin'
-EXIST_DB_PASSWORD = '123'
+EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
+EXIST_DB_PASSWORD = '123' #change for your own password (admin default)
 
-# Collection xquerys (non file specific)
+# Collection xquerys (non file specific) !!! Change all collection names to your own collection name
 XqueryGetFileName = """
-for $file in collection('/dives')
+for $file in collection('/dives') 
 return base-uri($file) 
 """
 
@@ -60,7 +60,7 @@ def extract_numbers_between_tags(xml_data, tag_name):
     numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
     return numbers
 
-# Starter for choosing template html file
+# Starter for choosing template html file , !!!!Choose your own name for the render_Template file
 @app.route('/')
 def start():
     return render_template("upload2.html")
@@ -83,7 +83,9 @@ def get_longitude():
 @app.route('/get-file-list')
 def get_file_list():
     results = execute_query(XqueryGetFileName)
-    return jsonify(results)
+    regex = r"\/db\/dives\/([^<]+)\.xml"
+    file_names = re.findall(regex, results)
+    return jsonify(file_names)
 
 # Return dive names list
 @app.route('/get-dive-name')
