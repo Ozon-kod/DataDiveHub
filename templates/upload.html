@@ -175,6 +175,15 @@ table {
                         </svg>
                         <span class="ml-4">Upload Data</span>
                     </a>
+                    <div id="dive-computer-dropdown" class="hidden">
+                      <label for="diveComputer" class="text-gray-700">Select Dive Computer:</label>
+                      <select id="diveComputer" name="diveComputer" class="border-gray-300 rounded-lg">
+                          <option value="">Select...</option>
+                          <option value="computer1">Uddf</option>
+                          <option value="computer2">Garmin</option>
+                          <option value="computer3">Deepblu</option>
+                      </select>
+                  </div>
                   </div>
                   <a href="/download" download="dive_data.csv" target="_blank"
                     class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
@@ -509,9 +518,16 @@ function handleMarkerClick(clickedMarkerIndex) {
     }
     // Add event listener to the upload link
     document.getElementById('upload-link').addEventListener('click', function(event) {
-        event.preventDefault(); // Prevent the default action of the link
-        triggerFileInput(); // Call the function to trigger file input click event
+      event.preventDefault(); // Prevent the default action of the link
+      const diveComputerDropdown = document.getElementById('dive-computer-dropdown');
+      diveComputerDropdown.classList.remove('hidden');  // Show the dropdown if hidden
     });
+
+    document.getElementById('diveComputer').addEventListener('change', function() {
+    if (this.value) {  // Only trigger file input if a dive computer is selected
+        const fileInput = document.getElementById('fileInput');
+        fileInput.click(); // Trigger click event on file input
+    }})
 
     // Event listener to handle file selection
     document.getElementById('fileInput').addEventListener('change', function() {
