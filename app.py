@@ -8,7 +8,7 @@ app = Flask(__name__)
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
 EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
-EXIST_DB_PASSWORD = 'hej' #change for your own password (admin default)
+EXIST_DB_PASSWORD = '123' #change for your own password (admin default)
 
 # Collection xquerys (non file specific) !!! Change all collection names to your own collection name
 XqueryGetFileName = """
@@ -58,7 +58,7 @@ def extract_numbers_between_tags(xml_data, tag_name):
     end_index = xml_data.rfind(end_tag)
     # Extract the substring containing only specified tags
     tag_data = xml_data[start_index:end_index+len(end_tag)]
-    # Regular expression to extract numbers between specified tags
+    # Regular expression (re) to extract numbers between specified tags
     numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
     return numbers
 
@@ -162,38 +162,50 @@ def fetch_date():
 @app.route('/dive-depth', methods=['POST'])
 def fetch_wDepth():
     data = request.get_json()
+    depths = []
     selected_filename = data['fileName']
     XqueryGetDiveDepth = f'''
-    let $fileName := "{selected_filename}"
-    let $doc := db:open("dives", $fileName)
-    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/depth/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
     '''
     results = execute_query(XqueryGetDiveDepth)
-    return jsonify(results.split())
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches: 
+        depth_match = re.search(r'<depth>(.*?)</depth>', match, re.DOTALL)
+        depths.append(float(depth_match.group(1)))
+    return depths 
 
 @app.route('/dive-time', methods=['POST'])
 def fetch_wDiveTime():
     data = request.get_json()
+    divetime = []
     selected_filename = data['fileName']
     XqueryGetDiveTime = f'''
-    let $fileName := "{selected_filename}"
-    let $doc := db:open("dives", $fileName)
-    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/divetime/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
     '''
     results = execute_query(XqueryGetDiveTime)
-    return jsonify(results.split())
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches:
+        depth_match = re.search(r'<divetime>(.*?)</divetime>', match, re.DOTALL)
+        divetime.append(float(depth_match.group(1)))
+    return divetime
 
 @app.route('/dive-temperature', methods=['POST'])
 def fetch_wDiveTemp():
     data = request.get_json()
+    temperatures = []
     selected_filename = data['fileName']
     XqueryGetDiveTemp = f'''
-    let $fileName := "{selected_filename}"
-    let $doc := db:open("dives", $fileName)
-    return $doc//profiledata/repetitiongroup/dive/samples/waypoint/temperature/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
     '''
     results = execute_query(XqueryGetDiveTemp)
-    return jsonify(results.split())
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches:
+        depth_match = re.search(r'<temperature>(.*?)</temperature>', match, re.DOTALL)
+        temperatures.append(float(depth_match.group(1)))
+    return temperatures
 
 
 def add_xml_data_to_database(database_name, document_name, xml_data):

@@ -254,9 +254,8 @@ table {
       const regex = /"([^"]+)"/g;
       // Split the string into an array of file names
       const fileList = Array.from(fileListString.matchAll(regex), match => (match[1]));
-      console.log(fileList);
-      // Retrieve the file name using the index
-      const selectedFileName = fileList[rowIndex];
+      // Retrieve the file name using the index (index starts as 1 we use zero here)
+      const selectedFileName = fileList[rowIndex-1];
       console.log('Selected file:', selectedFileName); // Log the selected file name
 
       // Fetch depth data
@@ -264,11 +263,10 @@ table {
           depthList = depthList.slice(2, -3).replace(/"/g, "").split(",");
           // Fetch temperature data
           fetchData('/dive-temperature', selectedFileName, tempList => {
-              tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");
+              tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");              
               // Fetch time data
               fetchData('/dive-time', selectedFileName, timeList => {
                   timeList = timeList.slice(2, -3).replace(/"/g, "").split(",");
-
                   // Convert the fetched data into arrays of numbers
                   const depthData = depthList.map(entry => parseFloat(entry.trim()));
                   const tempData = tempList.map(entry => parseFloat(entry.trim()));
@@ -280,7 +278,6 @@ table {
                       depth: invertedDepthData[index],
                       temp: tempData[index], // Include temperature as an attribute
                   }));
-
                   // Sort the waypoints by time 
                   waypoints.sort((a, b) => a.time - b.time);
 
@@ -346,7 +343,9 @@ table {
 
                                           // Include temperature 
                                           if (context.dataset.temperature !== undefined) {
-                                              label += '\nTemperature: ' + context.dataset.temperature[context.dataIndex] + ' °C';
+                                            var temperatureKelvin = parseFloat(context.dataset.temperature[context.dataIndex]);
+                                            var temperatureCelsius = (temperatureKelvin - 273.15).toFixed(1);
+                                            label += '\nTemperature: ' + temperatureCelsius + ' °C';
                                           }
 
                                           return label;
@@ -443,7 +442,6 @@ fetch('/get-latitude')
 
 // Function to handle marker click event
 function handleMarkerClick(clickedMarkerIndex) {
-    console.log(clickedMarkerIndex);
     const clickedMarker = markers[clickedMarkerIndex];
     const clickedLatlng = clickedMarker.getLatLng(); // Get latitude and longitude of clicked marker
     const nearbyDivesIndex = [];
