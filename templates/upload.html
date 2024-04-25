@@ -295,9 +295,16 @@ table {
                               borderColor: 'rgba(173, 216, 230, 0.8)',
                               backgroundColor: 'rgba(173, 216, 230, 0.4)',
                               temperature: sortedTempData, //add temp as a dataset to later use it
-                          },
+                          },{
+                        label: 'Temperature',
+                        data: tempData,
+                        borderColor: 'rgba(255, 99, 132, 0.8)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.4)',
+                        
+                    }
                       ],
-                  };
+              
+                 };
 
                   // Configuration options
                   const config = {
@@ -314,7 +321,7 @@ table {
                               y: {
                                   title: {
                                       display: true,
-                                      text: 'Depth',
+                                      text: 'Depth (m) ',
                                   },
                                   beginAtZero: true, // Start the axis at zero
                               },
@@ -349,6 +356,7 @@ table {
                                           }
 
                                           return label;
+                        
                                       },
                                   },
                               },
