@@ -175,6 +175,15 @@ table {
                         </svg>
                         <span class="ml-4">Upload Data</span>
                     </a>
+                    <div id="dive-computer-dropdown" class="hidden">
+                      <label for="diveComputer" class="text-gray-700">Select Dive Computer:</label>
+                      <select id="diveComputer" name="diveComputer" class="border-gray-300 rounded-lg">
+                          <option value="">Select...</option>
+                          <option value="computer1">Uddf</option>
+                          <option value="computer2">Garmin</option>
+                          <option value="computer3">Deepblu</option>
+                      </select>
+                  </div>
                   </div>
                   <a href="/download" download="dive_data.csv" target="_blank"
                     class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
@@ -241,23 +250,24 @@ table {
     fetch('/get-file-list')
      .then(response => response.text())
      .then(fileListString => {
-      fileListString = fileListString.slice(1, -2);
-
+      fileListString = fileListString.slice(2, -3);
+      const regex = /"([^"]+)"/g;
       // Split the string into an array of file names
-      const fileList = fileListString.split('\\r\\n').filter(fileName => fileName.trim() !== '');
+      const fileList = Array.from(fileListString.matchAll(regex), match => (match[1]));
+      console.log(fileList);
       // Retrieve the file name using the index
       const selectedFileName = fileList[rowIndex];
       console.log('Selected file:', selectedFileName); // Log the selected file name
 
       // Fetch depth data
       fetchData('/dive-depth', selectedFileName, depthList => {
-          depthList = depthList.slice(1, -2).replace(/"/g, "").split(",");
+          depthList = depthList.slice(2, -3).replace(/"/g, "").split(",");
           // Fetch temperature data
           fetchData('/dive-temperature', selectedFileName, tempList => {
-              tempList = tempList.slice(1, -2).replace(/"/g, "").split(",");
+              tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");
               // Fetch time data
               fetchData('/dive-time', selectedFileName, timeList => {
-                  timeList = timeList.slice(1, -2).replace(/"/g, "").split(",");
+                  timeList = timeList.slice(2, -3).replace(/"/g, "").split(",");
 
                   // Convert the fetched data into arrays of numbers
                   const depthData = depthList.map(entry => parseFloat(entry.trim()));
@@ -348,7 +358,6 @@ table {
                           fill: 'origin', // Fill area below the line
                       },
                   };
-
                   //chart
                   const myChart = new Chart(
                       document.getElementById('diveProfile'),
@@ -364,8 +373,7 @@ table {
 </script>
 
 <!-- Map script --> <script>
-    
-    
+  
     var maxBounds = [
         [90, -180], // North West
         [-90, 180]  // South East
@@ -374,12 +382,12 @@ table {
     var map = L.map('map').setView([51.505, -0.09], 13); // Initialize Leaflet map
     // Add Mapbox tile layer
     L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-            attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a>',
+            attribution: '© Diving Data Hub',
             maxZoom: 18,
             id: 'mapbox/outdoors-v12',
             tileSize: 512,
             zoomOffset: -1,
-            maxBounds:maxBounds,
+            maxBounds: maxBounds,
             accessToken: 'pk.eyJ1IjoibWFjYW50b21hdG8iLCJhIjoiY2x2MG4xbmU5MWhiMDJpcnprazNhMHBueCJ9.6rufAEhCvcvJQD02SMqGoQ' // Replace with your Mapbox access token
       }).addTo(map);
 
@@ -387,32 +395,35 @@ table {
 // Array to store reference to which marker has been clicked
 let markers = [];
 
-// Fetch latitude and longitude
+// Fetch latitude
 fetch('/get-latitude')
   .then(response => response.text())
   .then(latitude => {
+    // Fetch longitude
     fetch('/get-longitude')
       .then(response => response.text())
       .then(longitude => {
         // Split latitude and longitude strings into arrays
-        latitude = latitude.slice(1, -2);
-        longitude = longitude.slice(1, -2);
-        const latitudeArray = latitude.split('\\r\\n');
-        const longitudeArray = longitude.split('\\r\\n');
-
-        // latitude and longitude ahs the same lenth so its ok
+        const regex = /"([^"]+)"/g;
+        latitude = latitude.slice(2, -3);
+        longitude = longitude.slice(2, -3);
+        // Extract numbers and map them to floats
+        const latitudeArray = Array.from(latitude.matchAll(regex), match => parseFloat(match[1]));
+        const longitudeArray = Array.from(longitude.matchAll(regex), match => parseFloat(match[1]));
+        // Assuming both latitude and longitude arrays have the same length
         for (let i = 0; i < latitudeArray.length; i++) {
           // Convert latitude and longitude to floating-point numbers
           const lat = parseFloat(latitudeArray[i]);
           const lng = parseFloat(longitudeArray[i]);
 
-          // Create marker
+          // Create marker and add it to the map
           let marker = L.marker([lat, lng]).addTo(map);
-          markers.push(marker);
-          
+          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng + "<br>").openPopup();
+          markers.push(marker); // Push marker to list of markers
+          // Add click event listener to the marker
           // Add click event listener to the marker
           marker.on('click', function (e) {
-            handleMarkerClick(markers.indexOf(marker));
+              handleMarkerClick(markers.indexOf(marker));
           });
         }
       })
@@ -424,8 +435,15 @@ fetch('/get-latitude')
     console.error('Error fetching latitude:', error);
   });
 
+
+
+
+
+
+
 // Function to handle marker click event
 function handleMarkerClick(clickedMarkerIndex) {
+    console.log(clickedMarkerIndex);
     const clickedMarker = markers[clickedMarkerIndex];
     const clickedLatlng = clickedMarker.getLatLng(); // Get latitude and longitude of clicked marker
     const nearbyDivesIndex = [];
@@ -439,17 +457,15 @@ function handleMarkerClick(clickedMarkerIndex) {
             nearbyDivesIndex.push(markers.indexOf(marker)+1); //Since the list uses index for 1-n and not 0-n
         }
     });
-    console.log(nearbyDivesIndex);
     // Fetch dive names and populate the dive list
     fetch('/get-dive-name')
         .then(response => response.text())
         .then(data => { 
-            data = data.slice(1, -2);
+            data = data.slice(2, -3);
             let DiveIndex = 0; //File index/row index
-            console.log('Data received:', data); // Log the data to the console
-            const DiveNames = data.split('\\r\\n').filter(DiveName => DiveName.trim() !== '');
+            const regex = /"([^"]+)"/g;
+            const DiveNames = Array.from(data.matchAll(regex), match => match[1]);
             const DiveListBody = document.getElementById('dive-list');
-            
             // Clear existing dive list
             DiveListBody.innerHTML = '';
             trueIndex = 0; //For keeping track of the actual index stored in the array
@@ -491,39 +507,82 @@ function handleMarkerClick(clickedMarkerIndex) {
 </script>    
 
 <!-- Upload --><script>
-
-    // Function to trigger file input click event
-    function triggerFileInput() {
-        const fileInput = document.getElementById('fileInput');
-        fileInput.click(); // Trigger click event on file input
+    // Function to show the dropdown and setup further interaction
+    function showDropdownAndPrepareUpload() {
+        const dropdown = document.getElementById('dive-computer-dropdown');
+        if (dropdown) {
+            dropdown.classList.remove('hidden'); // Show the dropdown
+            console.log('Dropdown shown');
+        } else {
+            console.error('Dropdown not found');
+        }
     }
+
     // Add event listener to the upload link
     document.getElementById('upload-link').addEventListener('click', function(event) {
         event.preventDefault(); // Prevent the default action of the link
-        triggerFileInput(); // Call the function to trigger file input click event
+        showDropdownAndPrepareUpload(); // Show dropdown and prepare for file upload
     });
 
-    // Event listener to handle file selection
+    // Event listener for dive computer selection
+    document.getElementById('diveComputer').addEventListener('change', function() {
+        const selectedComputer = this.value;
+        const fileInput = document.getElementById('fileInput');
+
+        if (fileInput && selectedComputer !== "") {
+            fileInput.click(); // Prompt user to select file
+        } else {
+            console.error('File input element or dive computer selection missing');
+        }
+
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('xmlFile', fileInput.files[0]);
+                formData.append('diveComputer', selectedComputer);
+
+                let uploadUrl = '/upload'; // Default upload URL
+
+                if (selectedComputer === 'computer2') { // Garmin specific case
+                    uploadUrl = '/process-garmin'; // This endpoint will handle file processing on the server
+                }
+
+                fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Upload response for ' + selectedComputer + ':', data);
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                });
+            }
+        };
+    });
+
+    // Event listener to handle file selection and upload file
     document.getElementById('fileInput').addEventListener('change', function() {
-        const formData = new FormData(); // Create a FormData object
-        formData.append('xmlFile', this.files[0]); // Append the file to the FormData object
-        console.log('Selected file:', this.files[0]);
-        
-        fetch('/upload', {
-            method: 'POST',
-            body: formData, // Pass the FormData object as the request body
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Upload response:', data);
-            // Handle upload response if needed
-        })
-        .catch(error => {
-            console.error('Error uploading file:', error);
-            // Handle error if needed
-        });
-    });
+        if (this.files.length > 0) {
+            const formData = new FormData();
+            formData.append('xmlFile', this.files[0]);
+            formData.append('diveComputer', document.getElementById('diveComputer').value);
 
+            fetch('/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Upload response:', data);
+                // Optionally reset the form or handle the response
+            })
+            .catch(error => {
+                console.error('Error uploading file:', error);
+            });
+        }
+    });
 </script>
 </body>
 
