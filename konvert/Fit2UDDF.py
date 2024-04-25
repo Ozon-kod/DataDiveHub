@@ -95,6 +95,9 @@ def main(argv):
     uddf_divesite = ET.Element("divesite")
     uddf_site = ET.Element("site")
 
+
+
+
     #Gas definition
     uddf_gasdefinitions = ET.Element("gasdefinitions")
 
@@ -125,10 +128,12 @@ def main(argv):
             utc_offset_hours = int(decoder.fields["time_offset"].replace(":00 min", "")) / 60 / 60
         if record.name == 'session':  # Lat/Long
             decoder.load_rec(record)
-            uddf_geography = ET.Element("geography")
-            # ET.SubElement(uddf_geography, "latitude").text = "{:.8f}".format(int(decoder.fields["start_position_lat"]) * (180/2**31))
-            # ET.SubElement(uddf_geography, "longitude").text = "{:.8f}".format(int(decoder.fields["start_position_long"]) * (180/2**31))
-            uddf_site.append(uddf_geography)
+            ET.SubElement(uddf_divesite,"name")
+            ET.SubElement(uddf_divesite, "environment")
+            geo=ET.SubElement(uddf_divesite,"geography")
+            ET.SubElement(geo, "latitude")
+            ET.SubElement(geo, "longitude")
+            ET.SubElement(geo, "altitude")
         if record.name == 'dive_gas':  # Dive Gas
             decoder.load_rec(record)
             if (decoder.fields["status"] == "enabled"):
