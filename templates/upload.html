@@ -90,11 +90,12 @@ table {
     right: 0;
     bottom: 0;
     z-index: 10; 
+    
   }
   
   #map {
       height: 80%; 
-      width: 77.5%; 
+      width: 70%; 
   }
   
 </style>
@@ -107,6 +108,7 @@ table {
     right: 0;
     bottom: 0;
     z-index: 10; 
+    width: 70%;
   }
   </style>
   
@@ -216,6 +218,7 @@ table {
                 <canvas id="diveTableSummary"></canvas>
             </div>
             <div class="graph-container">
+              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 text-white rounded width:'block'">More Info</button>
               <canvas id="diveProfile"></canvas>
           </div>
         </div>
@@ -333,7 +336,7 @@ table {
                               tooltip: {
                                   mode: 'index',
                                   intersect: false,
-                                  callbacks: {
+                                  callbacks: {  
                                       // Custom tooltip function to include temperature
                                       label: function (context) {
                                           let label = context.dataset.label || '';
@@ -367,15 +370,34 @@ table {
               });
           });
       });
-
       document.querySelector('#map-container').style.display= 'none';
       document.querySelector('.graph-container').style.display = 'block';
-    })}
+
+      document.getElementById('more-info').addEventListener('click', function(event) {
+        const graphContainer = document.querySelector('.graph-container');
+        if (graphContainer.style.width === '50%') {
+            graphContainer.style.width = ''; // Reset width to default
+            toggleMoreInfoButton(true); // Change button text to "More Info"
+          } else {
+              graphContainer.style.width = '50%'; // Set width to 50%
+              toggleMoreInfoButton(false); // Change button text to "Click to Minimize"
+          }
+      });
+
+      function toggleMoreInfoButton(minimized) {
+          const moreInfoBtn = document.getElementById('more-info');
+          if (minimized) {
+              moreInfoBtn.textContent = 'More Info'; // Change button text to "More Info"
+          } else {
+              moreInfoBtn.textContent = 'Click to Minimize'; // Change button text to "Click to Minimize"
+          }
+      }
+          })}
 </script>
 
 <!-- Map script --> <script>
   
-    var maxBounds = [
+    var maxMapBounds = [
         [90, -180], // North West
         [-90, 180]  // South East
     ];
@@ -388,7 +410,7 @@ table {
             id: 'mapbox/outdoors-v12',
             tileSize: 512,
             zoomOffset: -1,
-            maxBounds: maxBounds,
+            maxBounds: maxMapBounds,
             accessToken: 'pk.eyJ1IjoibWFjYW50b21hdG8iLCJhIjoiY2x2MG4xbmU5MWhiMDJpcnprazNhMHBueCJ9.6rufAEhCvcvJQD02SMqGoQ' // Replace with your Mapbox access token
       }).addTo(map);
 
@@ -435,12 +457,6 @@ fetch('/get-latitude')
   .catch(error => {
     console.error('Error fetching latitude:', error);
   });
-
-
-
-
-
-
 
 // Function to handle marker click event
 function handleMarkerClick(clickedMarkerIndex) {
