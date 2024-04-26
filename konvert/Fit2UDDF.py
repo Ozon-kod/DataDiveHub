@@ -205,7 +205,6 @@ def main(argv):
     uddf_doc.append(uddf_profiledata)
     tree = ET.ElementTree(uddf_doc)
     tree.write(uddf_file)
-    print("Done!")
 
 if __name__ == '__main__':
     main(sys.argv[1:])
