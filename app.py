@@ -93,7 +93,7 @@ def get_file_list():
 @app.route('/get-dive-name')
 def get_dive_name():
     results = execute_query(XqueryGetDiveName)
-    names = extract_numbers_between_tags(results, 'name')
+    names = extract_numbers_between_tags(results, 'name')   
     return jsonify(names)
 
 # Request for getting specific file diving computer
@@ -129,20 +129,22 @@ def fetch_duration():
 def fetch_max_depth():
     data = request.get_json()
     selected_filename = data['fileName']
+    index = data['index']
     XqueryGetGreatestDepth = f'''
-    let $fileName := "{selected_filename}"
-    let $doc := db:open("dives", $fileName)
-    return $doc//informationafterdive/greatestdepth/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//informationafterdive/greatestdepth
     '''
     results = execute_query(XqueryGetGreatestDepth)
-    depths = [float(depth) for depth in results.split()]
-    return jsonify(depths[0])
+    depths=extract_numbers_between_tags(results, 'greatestdepth')
+    result = depths[index]
+    return result
 
 # Request for getting the files date
 @app.route('/get-date', methods=['POST'])
 def fetch_date():
     data = request.get_json()
     selected_filename = data['fileName']
+    index = data['index']
     XqueryGetDate = f'''
     for $doc in collection(/db/dives/{selected_filename})
     return $doc//generator/date
@@ -151,7 +153,7 @@ def fetch_date():
     year=extract_numbers_between_tags(results, 'year')
     month=extract_numbers_between_tags(results, 'month')
     day=extract_numbers_between_tags(results, 'day')
-    result = "-".join([year[0], month[0], day[0]])
+    result = "-".join([year[index], month[index], day[index]])
     return result
 
 # Waypoints below, to create graph, routes for depth, time and temp.

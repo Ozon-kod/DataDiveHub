@@ -261,7 +261,8 @@ table {
                     <strong id="diverTotalDuration">Total Dive Duration:</strong> 10 hours
                   </div>
                   <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong id="greatestDepth">GreatestDepth:</strong> 5 m
+                    <strong><span id="certLabel" class="text-black">GreatestDepth:</span></strong>
+                    <span id="greatestDepth"></span>
                   </div>
                 </div>
                 
@@ -284,22 +285,25 @@ table {
     <!--JS SCRIPTs-->
 
 <!-- Populate data below chart--><script>
-function populateContentBelow(fileName, index){
+function populateContentBelow(file, index){
   //function to populate the chart below using selected fileName. Date,Name,GreatestDepth, AverageDepth,Certification etc
   fetch('/get-dive-name')
         .then(response => response.text())
         .then(data => { 
             data = data.slice(2, -3);
-            let DiveIndex = 0; //File index/row index
             const regex = /"([^"]+)"/g;
             const DiveNames = Array.from(data.matchAll(regex), match => match[1]);
             const currentDiveName = DiveNames[index];
-            console.log(currentDiveName);
-            document.querySelector('#diverName').textContent += " " + currentDiveName;
-            fetchData('/get-date', fileName, date => {
-              document.querySelector('#diveDate').textContent = date;
-  });
+            document.querySelector('#diverName').textContent = currentDiveName;
+          })
+  fetchData('/get-date', file, index, date=> {
+    document.querySelector('#diveDate').textContent = date;
   })
+
+  fetchData('/get-max-depth', file , index, gDepth=> {
+    document.querySelector('#greatestDepth').textContent = gDepth;
+  })
+
 }
 
 
@@ -307,13 +311,13 @@ function populateContentBelow(fileName, index){
 </script>
 
 <!-- Fetch data --><script>
-  function fetchData(url, fileName, callback) {
+  function fetchData(url, fileName, index, callback) {
     fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fileName: fileName })
+        }, //pass both filename and index as data
+        body: JSON.stringify({ fileName: fileName, index: index })
     })
     .then(response => response.text())
     .then(data => {
@@ -342,13 +346,13 @@ function populateContentBelow(fileName, index){
       console.log('Selected file:', selectedFileName); // Log the selected file name
 
       // Fetch depth data
-      fetchData('/dive-depth', selectedFileName, depthList => {
+      fetchData('/dive-depth', selectedFileName, rowIndex,  depthList => {
           depthList = depthList.slice(2, -3).replace(/"/g, "").split(",");
           // Fetch temperature data
-          fetchData('/dive-temperature', selectedFileName, tempList => {
+          fetchData('/dive-temperature', selectedFileName, rowIndex,  tempList => {
               tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");              
               // Fetch time data
-              fetchData('/dive-time', selectedFileName, timeList => {
+              fetchData('/dive-time', selectedFileName, rowIndex, timeList => {
                   timeList = timeList.slice(2, -3).replace(/"/g, "").split(",");
                   // Convert the fetched data into arrays of numbers
                   const depthData = depthList.map(entry => parseFloat(entry.trim()));
@@ -452,10 +456,9 @@ function populateContentBelow(fileName, index){
       });
     document.querySelector('#map-container').style.display= 'none';
     document.querySelector('.graph-container').style.display = 'block';
-    //Populate the info if the user decides to click more info, so it does this when opening map and not when button onclick.
-    populateContentBelow(selectedFileName, rowIndex-1);
     //Below for button onclick and more dive information
     document.getElementById('more-info').addEventListener('click', function(event) {
+      populateContentBelow(selectedFileName, rowIndex-1);
       const additionalContentBelow = document.querySelector('.additional-content-below');
       const additionalContentRight = document.querySelector('.additional-content-right');
       const graphContainer = document.querySelector('.graph-container');
