@@ -34,7 +34,7 @@ return $file//divesite/site/geography/longitude
 def execute_query(query):
     auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
     params = {'_query': query}
-    response = requests.get(f'{EXIST_DB_URL}/db', params=params, auth=auth)
+    response = requests.get(f'{EXIST_DB_URL}/db/dives', params=params, auth=auth)
     if response.status_code == 200:
         return response.text
     else:
@@ -144,19 +144,15 @@ def fetch_date():
     data = request.get_json()
     selected_filename = data['fileName']
     XqueryGetDate = f'''
-    let $fileName := "{selected_filename}"
-    for $file in collection("dives")
-    where base-uri($file) = '/dives/{selected_filename}'
-    let $year := $file//generator//date/year
-    let $month := if (string-length($file//generator//date/month) = 1) then concat("0", $file//generator//date/month) else string($file//generator//date/month)
-    let $day := if (string-length($file//generator//date/day) = 1) then concat("0", $file//generator//date/day) else string($file//generator//date/day)
-    return concat($year, '-', $month, '-', $day)
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//generator/date
     '''
     results = execute_query(XqueryGetDate)
-    if results:
-        return jsonify(results.split()[0])
-    else:
-        return jsonify("Date not found")
+    year=extract_numbers_between_tags(results, 'year')
+    month=extract_numbers_between_tags(results, 'month')
+    day=extract_numbers_between_tags(results, 'day')
+    result = "-".join([year[0], month[0], day[0]])
+    return result
 
 # Waypoints below, to create graph, routes for depth, time and temp.
 @app.route('/dive-depth', methods=['POST'])
