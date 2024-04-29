@@ -177,27 +177,34 @@ table {
                   </li>
                 </ul>
                 <div class="space-y-2 pt-2">
-                    <!-- File input -->
-                    <input type="file" id="fileInput" name="xmlFile" class="hidden" />
-                    <!-- Upload Data button -->
-                    <a id="upload-link" href="#" class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
-                        <svg class="w-5 h-5 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
-                            aria-hidden="true" focusable="false" data-prefix="fas" data-icon="gem" role="img"
-                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                            <path fill="currentColor"
-                            d="M378.7 32H133.3L256 182.7L378.7 32zM512 192l-107.4-141.3L289.6 192H512zM107.4 50.67L0 192h222.4L107.4 50.67zM244.3 474.9C247.3 478.2 251.6 480 256 480s8.653-1.828 11.67-5.062L510.6 224H1.365L244.3 474.9z">
-                            </path>
-                        </svg>
-                        <span class="ml-4">Upload Data</span>
-                    </a>
-                    <div id="dive-computer-dropdown" class="hidden">
-                      <label for="diveComputer" class="text-gray-700">Select Dive Computer:</label>
-                      <select id="diveComputer" name="diveComputer" class="border-gray-300 rounded-lg">
-                          <option value="">Select...</option>
-                          <option value="computer1">Uddf</option>
-                          <option value="computer2">Garmin</option>
-                          <option value="computer3">Deepblu</option>
-                      </select>
+                  <!-- File input -->
+                  <input type="file" id="fileInput" name="xmlFile" class="hidden" />
+                  <!-- Upload Data button -->
+                  <a id="upload-link" href="#" class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
+                      <svg class="w-5 h-5 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
+                          aria-hidden="true" focusable="false" data-prefix="fas" data-icon="gem" role="img"
+                          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                          <path fill="currentColor"
+                          d="M378.7 32H133.3L256 182.7L378.7 32zM512 192l-107.4-141.3L289.6 192H512zM107.4 50.67L0 192h222.4L107.4 50.67zM244.3 474.9C247.3 478.2 251.6 480 256 480s8.653-1.828 11.67-5.062L510.6 224H1.365L244.3 474.9z">
+                          </path>
+                      </svg>
+                      <span class="ml-4">Upload Data</span>
+                  </a>
+                  <div id="dive-computer-dropdown" class="hidden">
+                    <label for="diveComputer" class="text-gray-700">Select Dive Computer:</label>
+                    <select id="diveComputer" name="diveComputer" class="border-gray-300 rounded-lg">
+                        <option value="">Select...</option>
+                        <option value="computer1">Uddf</option>
+                        <option value="computer2">Garmin</option>
+                        <option value="computer3">Deepblu</option>
+                    </select>
+                    <div id="coordsInput" class="hidden">
+                        <label for="latitude" class="text-gray-700">Latitude:</label>
+                        <input type="text" id="latitude" name="latitude" class="border-gray-300 rounded-lg">
+                        <label for="longitude" class="text-gray-700">Longitude:</label>
+                        <input type="text" id="longitude" name="longitude" class="border-gray-300 rounded-lg">
+                        <button onclick="submitCoords()">Submit Coords</button>
+                    </div>
                   </div>
                   </div>
                   <a href="/download" download="dive_data.csv" target="_blank"
@@ -658,6 +665,7 @@ function handleMarkerClick(clickedMarkerIndex) {
             console.error('Dropdown not found');
         }
     }
+  
 
     // Add event listener to the upload link
     document.getElementById('upload-link').addEventListener('click', function(event) {
@@ -666,64 +674,78 @@ function handleMarkerClick(clickedMarkerIndex) {
     });
 
     // Event listener for dive computer selection
-    document.getElementById('diveComputer').addEventListener('change', function() {
-        const selectedComputer = this.value;
-        const fileInput = document.getElementById('fileInput');
+  document.getElementById('diveComputer').addEventListener('change', function() {
+    const selectedComputer = this.value;
+    const coordsInput = document.getElementById('coordsInput');
+    const fileInput = document.getElementById('fileInput');
 
-        if (fileInput && selectedComputer !== "") {
-            fileInput.click(); // Prompt user to select file
+    // Show coordinates input for Garmin, keep file input hidden
+    if (selectedComputer === 'computer2') {
+        coordsInput.classList.remove('hidden');
+    } else {
+        coordsInput.classList.add('hidden');
+        // If not Garmin and a computer is selected, enable file input
+        if (selectedComputer !== "") {
+            fileInput.classList.remove('hidden');
         } else {
-            console.error('File input element or dive computer selection missing');
+            fileInput.classList.add('hidden');
         }
+    }
+  });
 
-        fileInput.onchange = () => {
-            if (fileInput.files.length > 0) {
-                const formData = new FormData();
-                formData.append('xmlFile', fileInput.files[0]);
-                formData.append('diveComputer', selectedComputer);
+// Function to submit coordinates
+function submitCoords() {
+    const latitude = document.getElementById('latitude').value;
+    const longitude = document.getElementById('longitude').value;
+    const fileInput = document.getElementById('fileInput');
 
-                let uploadUrl = '/upload'; // Default upload URL
-
-                if (selectedComputer === 'computer2') { // Garmin specific case
-                    uploadUrl = '/process-garmin'; // This endpoint will handle file processing on the server
-                }
-
-                fetch(uploadUrl, {
-                    method: 'POST',
-                    body: formData,
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Upload response for ' + selectedComputer + ':', data);
-                })
-                .catch(error => {
-                    console.error('Error uploading file:', error);
-                });
-            }
-        };
-    });
-
+    if (latitude && longitude) {
+        // Send the coordinates to the backend
+        fetch('/use-coordinates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ latitude: latitude, longitude: longitude })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message); // Show server response
+            fileInput.classList.remove('hidden');
+            fileInput.click();
+        })
+        .catch(error => console.error('Error:', error));
+    } else {
+        alert("Please enter both latitude and longitude.");
+    }
+}
     // Event listener to handle file selection and upload file
-    document.getElementById('fileInput').addEventListener('change', function() {
-        if (this.files.length > 0) {
-            const formData = new FormData();
-            formData.append('xmlFile', this.files[0]);
-            formData.append('diveComputer', document.getElementById('diveComputer').value);
+  document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files.length > 0) {
+        const formData = new FormData();
+        formData.append('xmlFile', this.files[0]);
+        formData.append('diveComputer', document.getElementById('diveComputer').value);
 
-            fetch('/upload', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Upload response:', data);
-                // Optionally reset the form or handle the response
-            })
-            .catch(error => {
-                console.error('Error uploading file:', error);
-            });
-        }
-    });
+        this.disabled = true; // Disable the file input during upload
+        fetch('/upload', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Upload response:', data);
+            alert('File uploaded successfully!');
+            this.value = ''; // Reset the file input
+        })
+        .catch(error => {
+            console.error('Error uploading file:', error);
+            alert('Failed to upload file. Please check the console for more details.');
+        })
+        .finally(() => {
+            this.disabled = false; // Re-enable the file input after the upload
+        });
+    }
+});
 </script>
 </body>
 

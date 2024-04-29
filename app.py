@@ -1,9 +1,17 @@
 import requests, re
 from flask import Flask, render_template, jsonify, request
+from flask_session import Session
+from flask import session
 import subprocess
 import os
 from werkzeug.utils import secure_filename
+import xml.etree.ElementTree as ET
+
 app = Flask(__name__)
+#Session which enables to use lattitude and longitude
+app.config['SECRET_KEY'] = 'rnadom'  
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
@@ -205,7 +213,7 @@ def fetch_wDiveTemp():
         temperatures.append(float(depth_match.group(1)))
     return temperatures
 
-
+#Add file to database
 def add_xml_data_to_database(database_name, document_name, xml_data):
     url = f"{EXIST_DB_URL}/db/{database_name}/{document_name}"
     auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
@@ -216,8 +224,39 @@ def add_xml_data_to_database(database_name, document_name, xml_data):
         return True, "File added to the database successfully"
     except requests.exceptions.RequestException as e:
         return False, f"Error adding file to the database: {e}"
+    
+#Update garmin xml file with coordniates
+def update_xml_with_coordinates(filepath, latitude, longitude):
+    tree = ET.parse(filepath)
+    root = tree.getroot()
+    
+    for divesite in root.findall('.//divesite'):
+        geo = divesite.find('geography')
+        lat_elem = geo.find('latitude')
+        long_elem = geo.find('longitude')
+        
+        if lat_elem is not None:
+            lat_elem.text = str(latitude)
+        if long_elem is not None:
+            long_elem.text = str(longitude)
+    
+    tree.write(filepath)  # Save changes back to the file
+    
+    # Assuming the structure includes a single divesite with geography
+    for divesite in root.findall('.//divesite'):
+        geo = divesite.find('geography')
+        lat_elem = geo.find('latitude')
+        long_elem = geo.find('longitude')
+        
+        if lat_elem is not None:
+            lat_elem.text = str(latitude)
+        if long_elem is not None:
+            long_elem.text = str(longitude)
+    
+    tree.write(filepath)  # Save changes back to the file
 
-def process_garmin_file(file):
+#function to process fit garmin file
+def process_garmin_file(file, latitude, longitude):
     input_filepath = os.path.join("testupload", secure_filename(file.filename))
     output_filepath = os.path.join("testupload", secure_filename(file.filename.replace('.fit', '.xml')))
     open(output_filepath, 'a').close()
@@ -227,13 +266,24 @@ def process_garmin_file(file):
     command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
     try:
         subprocess.run(command, check=True)
+        update_xml_with_coordinates(output_filepath, latitude, longitude)
         with open(output_filepath, 'rb') as f:
             xml_data = f.read()
-        os.remove(input_filepath)  # Optional: remove the original .fit file
-        os.remove(output_filepath)  # Optional: remove the processed .xml file
+        os.remove(input_filepath)  
+        os.remove(output_filepath)  
         return xml_data, None
     except subprocess.CalledProcessError as e:
         return None, f"Error processing file: {e}"
+    
+# Route to receive latitude and longitude coordinates from frontend
+@app.route('/use-coordinates', methods=['POST'])
+def use_coordinates():
+    data = request.get_json()
+    session['latitude'] = data.get('latitude')
+    session['longitude'] = data.get('longitude')
+
+    return jsonify({'message': 'Coordinates stored for future use'})
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -241,6 +291,12 @@ def upload_file():
         return jsonify(message='No file part'), 400
     file = request.files['xmlFile']
     dive_computer = request.form.get('diveComputer', '')
+
+    # Retrieve coordinates from the session
+    latitude = session.get('latitude')
+    longitude = session.get('longitude')
+    if not latitude or not longitude:
+        return jsonify(message='Latitude or longitude not set'), 400
     
     if file.filename == '':
         return jsonify(message='No selected file'), 400
@@ -248,7 +304,7 @@ def upload_file():
     if dive_computer == 'computer2':  # Garmin
         if not file.filename.endswith('.fit'):
             return jsonify(message='Invalid file format, please upload a FIT file for Garmin'), 400
-        xml_data, error = process_garmin_file(file)
+        xml_data, error = process_garmin_file(file,latitude, longitude)
         if error:
             return jsonify(message=error), 500
     else:
@@ -260,11 +316,13 @@ def upload_file():
     success, message = add_xml_data_to_database("dives", filename.replace('.fit', '.xml'), xml_data)
 
     if success:
+        session.pop('latitude', None)
+        session.pop('longitude', None)
         return jsonify(message=message), 200
+
     else:
         return jsonify(message=message), 500
 
-    
 
 
 if __name__ == '__main__':
