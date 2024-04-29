@@ -101,28 +101,28 @@ def get_dive_name():
 def fetch_dive_computer():
     data = request.get_json()
     selected_filename = data['fileName']
+    index = data['index']
     XqueryGetDiveComputer = f'''
-    let $doc := db:open("dives", "{selected_filename}")
-    return $doc//diver/owner/equipment/divecomputer/model/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//diver/owner/equipment/divecomputer/model
     '''
-    results = execute_query(XqueryGetDiveComputer)
-    if results:
-        return jsonify(results.split('\r\n')[0])
-    else:
-        return jsonify("Computer not found")
+    results=execute_query(XqueryGetDiveComputer)
+    durations=extract_numbers_between_tags(results, 'model')
+    return durations[index]
 
 # Request for getting the duration for a file
 @app.route('/get-duration', methods=['POST'])
 def fetch_duration():
     data = request.get_json()
     selected_filename = data['fileName']
+    index = data['index']
     XqueryGetDuration = f'''
-    let $doc := db:open("dives", "{selected_filename}")
-    return $doc//informationafterdive/diveduration/text()
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//informationafterdive/diveduration
     '''
     results = execute_query(XqueryGetDuration)
-    durations = [float(duration) for duration in results.split()]
-    return jsonify(durations[0])
+    durations = extract_numbers_between_tags(results, 'diveduration')
+    return durations[index]
 
 # Request for getting the max depth of a file
 @app.route('/get-max-depth', methods=['POST'])
