@@ -323,7 +323,17 @@ def upload_file():
     else:
         return jsonify(message=message), 500
 
-
-
+@app.route('/download', methods=['POST'])
+def download_file():
+    data = request.get_json()
+    selected_filename = data['fileName']
+    if not selected_filename.endswith('.xml'):
+        selected_filename += '.xml'
+    XqueryGetFile = f'''
+    let $file := doc('/db/dives/{selected_filename}')
+    return $file
+    '''
+    result=execute_query(XqueryGetFile)
+    return result
 if __name__ == '__main__':
     app.run(debug=True)
