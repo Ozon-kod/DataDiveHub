@@ -226,12 +226,14 @@ def add_xml_data_to_database(database_name, document_name, xml_data):
         return False, f"Error adding file to the database: {e}"
     
 #Update garmin xml file with coordniates
-def update_xml_with_coordinates(filepath, latitude, longitude):
+def update_xml_with_coordinates(filepath, latitude, longitude,name):
     tree = ET.parse(filepath)
     root = tree.getroot()
     
     for divesite in root.findall('.//divesite'):
-        geo = divesite.find('geography')
+        site = divesite.find('site')
+        name=site.find('name')
+        geo = site.find('geography')
         lat_elem = geo.find('latitude')
         long_elem = geo.find('longitude')
         
@@ -239,24 +241,13 @@ def update_xml_with_coordinates(filepath, latitude, longitude):
             lat_elem.text = str(latitude)
         if long_elem is not None:
             long_elem.text = str(longitude)
-    
-    tree.write(filepath)  # Save changes back to the file
-    
-    # Assuming the structure includes a single divesite with geography
-    for divesite in root.findall('.//divesite'):
-        geo = divesite.find('geography')
-        lat_elem = geo.find('latitude')
-        long_elem = geo.find('longitude')
-        
-        if lat_elem is not None:
-            lat_elem.text = str(latitude)
-        if long_elem is not None:
-            long_elem.text = str(longitude)
+        if name is not None:
+            name.text = str(name)
     
     tree.write(filepath)  # Save changes back to the file
 
-#function to process fit garmin file
-def process_garmin_file(file, latitude, longitude):
+#function for running convertion on garmin fit file
+def process_garmin_file(file, latitude, longitude, name):
     input_filepath = os.path.join("testupload", secure_filename(file.filename))
     output_filepath = os.path.join("testupload", secure_filename(file.filename.replace('.fit', '.xml')))
     open(output_filepath, 'a').close()
@@ -266,7 +257,7 @@ def process_garmin_file(file, latitude, longitude):
     command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
     try:
         subprocess.run(command, check=True)
-        update_xml_with_coordinates(output_filepath, latitude, longitude)
+        update_xml_with_coordinates(output_filepath, latitude, longitude, name)
         with open(output_filepath, 'rb') as f:
             xml_data = f.read()
         os.remove(input_filepath)  
@@ -275,14 +266,15 @@ def process_garmin_file(file, latitude, longitude):
     except subprocess.CalledProcessError as e:
         return None, f"Error processing file: {e}"
     
-# Route to receive latitude and longitude coordinates from frontend
+# Route to receive latitude, longitude and name from frontend
 @app.route('/use-coordinates', methods=['POST'])
 def use_coordinates():
     data = request.get_json()
     session['latitude'] = data.get('latitude')
     session['longitude'] = data.get('longitude')
+    session['name']=data.get('name')
 
-    return jsonify({'message': 'Coordinates stored for future use'})
+    return jsonify({'message': 'Data stored for future use'})
 
 
 @app.route('/upload', methods=['POST'])
@@ -295,8 +287,9 @@ def upload_file():
     # Retrieve coordinates from the session
     latitude = session.get('latitude')
     longitude = session.get('longitude')
-    if not latitude or not longitude:
-        return jsonify(message='Latitude or longitude not set'), 400
+    name=session.get('name')
+    if not latitude or not longitude or not name:
+        return jsonify(message='Data not set'), 400
     
     if file.filename == '':
         return jsonify(message='No selected file'), 400
@@ -304,7 +297,7 @@ def upload_file():
     if dive_computer == 'computer2':  # Garmin
         if not file.filename.endswith('.fit'):
             return jsonify(message='Invalid file format, please upload a FIT file for Garmin'), 400
-        xml_data, error = process_garmin_file(file,latitude, longitude)
+        xml_data, error = process_garmin_file(file,latitude, longitude, name)
         if error:
             return jsonify(message=error), 500
     else:
@@ -318,6 +311,7 @@ def upload_file():
     if success:
         session.pop('latitude', None)
         session.pop('longitude', None)
+        session.pop('name', None)
         return jsonify(message=message), 200
 
     else:

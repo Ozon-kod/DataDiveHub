@@ -223,12 +223,14 @@ table {
                         <option value="computer3">Deepblu</option>
                     </select>
                     <div id="coordsInput" class="hidden">
-                        <label for="latitude" class="text-gray-700">Latitude:</label>
-                        <input type="text" id="latitude" name="latitude" class="border-gray-300 rounded-lg">
-                        <label for="longitude" class="text-gray-700">Longitude:</label>
-                        <input type="text" id="longitude" name="longitude" class="border-gray-300 rounded-lg">
-                        <button onclick="submitCoords()">Submit Coords</button>
-                    </div>
+                      <label for="latitude" class="text-gray-700">Latitude:</label>
+                      <input type="text" id="latitude" name="latitude" class="border-gray-300 rounded-lg">
+                      <label for="longitude" class="text-gray-700">Longitude:</label>
+                      <input type="text" id="longitude" name="longitude" class="border-gray-300 rounded-lg">
+                      <label for="divesite_name" class="text-gray-700">Divesite name:</label>
+                      <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300">
+                      <button onclick="submitCoords()">Submit Coords</button>
+                  </div>
                   </div>
                   </div>
                 </div>
@@ -757,19 +759,21 @@ function handleMarkerClick(clickedMarkerIndex) {
   });
 
 // Function to submit coordinates
+
 function submitCoords() {
     const latitude = document.getElementById('latitude').value;
     const longitude = document.getElementById('longitude').value;
+    const divesite_name = document.getElementById('divesite_name')
     const fileInput = document.getElementById('fileInput');
 
-    if (latitude && longitude) {
+    if (latitude && longitude && divesite_name) {
         // Send the coordinates to the backend
         fetch('/use-coordinates', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ latitude: latitude, longitude: longitude })
+            body: JSON.stringify({ latitude: latitude, longitude: longitude, divesite_name: divesite_name })
         })
         .then(response => response.json())
         .then(data => {
@@ -779,11 +783,11 @@ function submitCoords() {
         })
         .catch(error => console.error('Error:', error));
     } else {
-        alert("Please enter both latitude and longitude.");
+        alert("Please enter latitude, longitude and divesite name.");
     }
 }
     // Event listener to handle file selection and upload file
-  document.getElementById('fileInput').addEventListener('change', function() {
+    document.getElementById('fileInput').addEventListener('change', function() {
     if (this.files.length > 0) {
         const formData = new FormData();
         formData.append('xmlFile', this.files[0]);

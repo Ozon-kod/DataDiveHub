@@ -93,7 +93,8 @@ def main(argv):
 
     #Divesite section
     uddf_divesite = ET.Element("divesite")
-    uddf_site = ET.Element("site")
+    uddf_site = ET.SubElement(uddf_divesite, "site")
+   
 
 
 
@@ -128,9 +129,9 @@ def main(argv):
             utc_offset_hours = int(decoder.fields["time_offset"].replace(":00 min", "")) / 60 / 60
         if record.name == 'session':  # Lat/Long
             decoder.load_rec(record)
-            ET.SubElement(uddf_divesite,"name")
-            ET.SubElement(uddf_divesite, "environment")
-            geo=ET.SubElement(uddf_divesite,"geography")
+            ET.SubElement(uddf_site,"name")
+            ET.SubElement(uddf_site, "environment")
+            geo=ET.SubElement(uddf_site,"geography")
             ET.SubElement(geo, "latitude")
             ET.SubElement(geo, "longitude")
             ET.SubElement(geo, "altitude")
