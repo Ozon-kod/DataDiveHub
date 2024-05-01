@@ -94,9 +94,11 @@ table {
   }
   
   #map {
-      height: 80%; 
-      width: 70%; 
-  }
+    height: 80%;
+    width: 70%;
+    border: 2px solid #ccc; 
+    border-radius: 10px; 
+}
   
 </style>
 <!-- Style for the graph --><style>
@@ -253,7 +255,7 @@ table {
                 <canvas id="diveTableSummary"></canvas>
             </div>
             <div class="graph-container">
-              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 hover:text-gray-900 text-white rounded ">More Info</button>
+              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 hover:text-gray-900 text-white rounded ">Click for more data</button>
               <canvas id="diveProfile"></canvas>
               <div class="additional-content-below">
                 <!-- Content to be displayed below the graph -->
@@ -584,9 +586,9 @@ function populateContentBelow(file, index){
     function toggleMoreInfoButton(minimized) {
         const moreInfoBtn = document.getElementById('more-info');
         if (minimized) {
-            moreInfoBtn.textContent = 'More Info'; // Change button text to "More Info"
+            moreInfoBtn.textContent = 'Click for more data'; // Change button text to "More Info"
         } else {
-            moreInfoBtn.textContent = 'Click to Minimize'; // Change button text to "Click to Minimize"
+            moreInfoBtn.textContent = 'Click to minimize data'; // Change button text to "Click to Minimize"
         }
     }
         })}
@@ -599,7 +601,13 @@ function populateContentBelow(file, index){
         [-90, 180]  // South East
     ];
 
-    var map = L.map('map').setView([51.505, -0.09], 13); // Initialize Leaflet map
+    // Initialize Leaflet map with max bounds and zoomed out view
+    var map = L.map('map', {
+        maxBounds: maxMapBounds,
+        maxBoundsViscosity: 1.0, // Ensure that the user cannot drag the map out of bounds
+        zoom: 2, // Set the initial zoom level to zoom out
+        center: [0, 0] // Set the initial center of the map
+    });
     // Add Mapbox tile layer
     L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
             attribution: '© Diving Data Hub',
