@@ -112,6 +112,10 @@ table {
     z-index: 10;
     width: 70%;
   }
+
+  .chartjs-tooltip {
+    white-space: pre-line;
+  }
   .additional-content-right {
     display: none;
     border-radius: 5px;
@@ -316,7 +320,7 @@ table {
               <span id="wTemp"></span>
             </div>
             <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Current change:</span></strong>
+              <strong><span class="text-black">Increase/Decrease rate:</span></strong>
               <span id="wChange"></span>
             </div>
           </div>
@@ -366,10 +370,16 @@ function populateContentBelow(file, index){
     document.querySelector('#greatestDepth').textContent = gDepth + " m";
   })
 
-  fetchData('/get-duration', file , index, duration=> {
-    duration = (duration/60).toFixed(2);
-    document.querySelector('#diveduration').textContent = duration + " minutes";
-  })
+  fetchData('/get-duration', file , index, duration => {
+    let totalSeconds = duration;
+    let minutes = Math.floor(totalSeconds / 60);
+    let seconds = Math.floor(totalSeconds % 60);
+
+    // Format the time as xx:xx
+    let formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    document.querySelector('#diveduration').textContent = formattedTime;
+});
 
   fetchData('/get-dive-computer', file, index, computer => {
     document.querySelector('#diveComp').textContent = computer;
@@ -450,6 +460,7 @@ function populateContentBelow(file, index){
                       labels: sortedTimeData, // time on x-axis
                       datasets: [
                           {
+                              label: 'Dive Depth',
                               data: sortedDepthData,
                               borderColor: 'rgba(173, 216, 230, 0.8)',
                               backgroundColor: 'rgba(173, 216, 230, 0.4)',
@@ -488,60 +499,66 @@ function populateContentBelow(file, index){
                                   propagate: false,
                               },
                               tooltip: {
-                                  mode: 'index',
-                                  intersect: false,
-                                  callbacks: {  
-                                      // Custom tooltip function to include temperature
-                                      label: function (context) {
-                                          let label = context.dataset.label || '';
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {  
+                                    // Custom tooltip function to include temperature
+                                    label: function (context) {
+                                        let label = '';
 
-                                          if (context.parsed.y !== null) {
-                                              label += '\nDepth: ' + context.parsed.y*(-1) + ' m';
-                                              document.querySelector('#wDepth').textContent = context.parsed.y.toFixed(2) * (-1) + ' m';
-                                          }
+                                        // Include time
+                                        if (context.parsed.x !== null) {
+                                            let totalSeconds = context.parsed.x;
+                                            let minutes = Math.floor(totalSeconds / 60);
+                                            let seconds = totalSeconds % 60;
 
-                                          if (context.parsed.x !== null) {
-                                              document.querySelector('#wTime').textContent = (context.parsed.x/60).toFixed(2);
-                                          }
+                                            // Format the time as min:sec
+                                            let formattedTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+                                            label += 'Time: ' + formattedTime + " min:sec ";
+                                            document.querySelector('#wTime').textContent = formattedTime;
+                                        }
 
-                                          // Calculate slope (k value) between two consecutive points
-                                          const dataIndex = context.dataIndex;
-                                          if (dataIndex > 0 && dataIndex < sortedTimeData.length) {
-                                              const y1 = sortedDepthData[dataIndex - 10];
-                                              const y2 = sortedDepthData[dataIndex];
-                                              const x1 = sortedTimeData[dataIndex - 10]/60;
-                                              const x2 = sortedTimeData[dataIndex]/60;
+                                        // Include depth
+                                        if (context.parsed.y !== null) {
+                                            label += 'Depth: ' + (-1 * context.parsed.y).toFixed(2) + ' m ';
+                                            document.querySelector('#wDepth').textContent = (-1 * context.parsed.y).toFixed(2) + ' m' ;
+                                        }
 
-                                              // Calculate slope
-                                              const k = (y2 - y1) / (x2 - x1);
-                                              threshold = 0.1;
-                                              // Display slope (k value) with arrow indicating direction if significant
-                                              let slopeText;
-                                              if (Math.abs(k) > threshold) {
-                                                  const arrowIcon = k > 0 ? '➚' : k < 0 ? '➘' : '';
-                                                  slopeText = k.toFixed(2) + ' ' + arrowIcon;
-                                              } else {
-                                                  slopeText = 'No significant change';
-                                              }
-
-                                              label += '\nChange: ' + slopeText;
-                                              document.querySelector('#wChange').textContent = slopeText;
-                                          }
-
-
-                                          // Include temperature 
-                                          if (context.dataset.temperature !== undefined) {
+                                        // Include temperature 
+                                        if (context.dataset.temperature !== undefined) {
                                             var temperatureKelvin = parseFloat(context.dataset.temperature[context.dataIndex]);
                                             var temperatureCelsius = (temperatureKelvin - 273.15).toFixed(1);
-                                            label += '\nTemperature: ' + temperatureCelsius + ' °C';
-                                            document.querySelector('#wTemp').textContent = temperatureCelsius + ' °C';
-                                          }
+                                            label += 'Temp: ' + temperatureCelsius + ' °C ';
+                                            document.querySelector('#wTemp').textContent = temperatureCelsius + ' °C ';
+                                        }
 
-                                          return label;
-                        
-                                      },
-                                  },
-                              },
+                                        // Calculate slope (gradient)
+                                        const dataIndex = context.dataIndex;
+                                        if (dataIndex > 0 && dataIndex < sortedTimeData.length) {
+                                            const y1 = sortedDepthData[dataIndex - 10];
+                                            const y2 = sortedDepthData[dataIndex];
+                                            const x1 = sortedTimeData[dataIndex - 10] / 60;
+                                            const x2 = sortedTimeData[dataIndex] / 60;
+
+                                            // Calculate slope
+                                            const k = (y2 - y1) / (x2 - x1);
+                                            threshold = 0.1;
+                                            // Display slope (gradient) with arrow indicating direction if significant
+                                            let slopeText;
+                                            if (Math.abs(k) > threshold) {
+                                                const arrowIcon = k > 0 ? '➚' : k < 0 ? '➘' : '';
+                                                slopeText = k.toFixed(2) + ' ' + arrowIcon;
+                                            } else {
+                                                slopeText = 'No significant change';
+                                            }
+                                            label += 'Gradient: ' + slopeText + " m/min ";
+                                            document.querySelector('#wChange').textContent = slopeText + " m/min ";
+                                        }
+
+                                        return label;
+                                    },
+                                }
+                            },
                           },
                           pointRadius: 0, // Hide data points
                           fill: 'origin', // Fill area below the line

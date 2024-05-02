@@ -155,13 +155,12 @@ def fetch_date():
     index = data['index']
     XqueryGetDate = f'''
     for $doc in collection(/db/dives/{selected_filename})
-    return $doc//generator/date
+    return $doc//profiledata/repetitiongroup/dive/informationbeforedive/datetime
     '''
     results = execute_query(XqueryGetDate)
-    year=extract_numbers_between_tags(results, 'year')
-    month=extract_numbers_between_tags(results, 'month')
-    day=extract_numbers_between_tags(results, 'day')
-    result = "-".join([year[index], month[index], day[index]])
+    new = extract_numbers_between_tags(results, 'datetime')
+    result = new[index]
+    result = result[0:10]
     return result
 
 # Waypoints below, to create graph, routes for depth, time and temp.
