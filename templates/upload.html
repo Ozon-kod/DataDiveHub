@@ -230,13 +230,16 @@ table {
                     </select>
                     <div id="coordsInput" class="hidden">
                       <label for="latitude" class="text-gray-700">Latitude:</label>
-                      <input type="text" id="latitude" name="latitude" class="border-gray-300 rounded-lg">
+                      <input type="number" id="latitude" name="latitude" class="border-gray-300 rounded-lg"
+                             required min="-90" max="90" step="0.000001" placeholder="Enter latitude (-90 to 90)">
                       <label for="longitude" class="text-gray-700">Longitude:</label>
-                      <input type="text" id="longitude" name="longitude" class="border-gray-300 rounded-lg">
+                      <input type="number" id="longitude" name="longitude" class="border-gray-300 rounded-lg"
+                             required min="-180" max="180" step="0.000001" placeholder="Enter longitude (-180 to 180)">
                       <label for="divesite_name" class="text-gray-700">Divesite name:</label>
-                      <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300">
+                      <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300 rounded-lg" required>
                       <button onclick="submitCoords()">Submit Coords</button>
-                  </div>
+                    </div>
+                    
                   </div>
                   </div>
                 </div>
@@ -786,12 +789,17 @@ function handleMarkerClick(clickedMarkerIndex) {
 // Function to submit coordinates
 
 function submitCoords() {
-    const latitude = document.getElementById('latitude').value;
-    const longitude = document.getElementById('longitude').value;
-    const divesite_name = document.getElementById('divesite_name')
+    const latitude = parseFloat(document.getElementById('latitude').value);
+    const longitude = parseFloat(document.getElementById('longitude').value);
+    const divesite_name = document.getElementById('divesite_name').value;
     const fileInput = document.getElementById('fileInput');
 
-    if (latitude && longitude && divesite_name) {
+    if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+        alert("Please enter valid latitude and longitude values.");
+        return;
+    }
+
+    if (divesite_name) {
         // Send the coordinates to the backend
         fetch('/use-coordinates', {
             method: 'POST',
@@ -810,6 +818,14 @@ function submitCoords() {
     } else {
         alert("Please enter latitude, longitude and divesite name.");
     }
+}
+
+function isValidLatitude(lat) {
+    return lat >= -90 && lat <= 90;
+}
+
+function isValidLongitude(lon) {
+    return lon >= -180 && lon <= 180;
 }
     // Event listener to handle file selection and upload file
     document.getElementById('fileInput').addEventListener('change', function() {
