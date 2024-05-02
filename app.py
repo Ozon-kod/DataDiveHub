@@ -226,7 +226,7 @@ def add_xml_data_to_database(database_name, document_name, xml_data):
         return False, f"Error adding file to the database: {e}"
     
 #Update garmin xml file with coordniates
-def update_xml_with_coordinates(filepath, latitude, longitude,name):
+def update_xml_with_coordinates(filepath, latitude, longitude, divesite_name):
     tree = ET.parse(filepath)
     root = tree.getroot()
     
@@ -236,13 +236,12 @@ def update_xml_with_coordinates(filepath, latitude, longitude,name):
         geo = site.find('geography')
         lat_elem = geo.find('latitude')
         long_elem = geo.find('longitude')
-        
         if lat_elem is not None:
             lat_elem.text = str(latitude)
         if long_elem is not None:
             long_elem.text = str(longitude)
         if name is not None:
-            name.text = str(name)
+            name.text = str(divesite_name)
     
     tree.write(filepath)  # Save changes back to the file
 
@@ -257,6 +256,7 @@ def process_garmin_file(file, latitude, longitude, name):
     command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
     try:
         subprocess.run(command, check=True)
+        print(name)
         update_xml_with_coordinates(output_filepath, latitude, longitude, name)
         with open(output_filepath, 'rb') as f:
             xml_data = f.read()
@@ -272,11 +272,12 @@ def use_coordinates():
     data = request.get_json()
     session['latitude'] = data.get('latitude')
     session['longitude'] = data.get('longitude')
-    session['name']=data.get('name')
+    session['divesite_name']=data.get('divesite_name')
 
     return jsonify({'message': 'Data stored for future use'})
 
 
+#Upload route
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'xmlFile' not in request.files:
@@ -287,7 +288,8 @@ def upload_file():
     # Retrieve coordinates from the session
     latitude = session.get('latitude')
     longitude = session.get('longitude')
-    name=session.get('name')
+    name = session.get('divesite_name')
+    print(name)
     if not latitude or not longitude or not name:
         return jsonify(message='Data not set'), 400
     
@@ -311,7 +313,7 @@ def upload_file():
     if success:
         session.pop('latitude', None)
         session.pop('longitude', None)
-        session.pop('name', None)
+        session.pop('divesite_name', None)
         return jsonify(message=message), 200
 
     else:
