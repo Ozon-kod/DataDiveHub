@@ -91,6 +91,9 @@ def main(argv):
     ET.SubElement(uddf_generator, "type").text = "converter"
     uddf_profiledata = ET.Element("profiledata")
 
+
+    #diver
+    uddf_diver = ET.Element("diver")
     #Divesite section
     uddf_divesite = ET.Element("divesite")
     uddf_site = ET.SubElement(uddf_divesite, "site")
@@ -119,6 +122,7 @@ def main(argv):
     dive_duration = 0
     first_sample_date = None
     dive_date = None
+    products = {"3258": 'Descent Mk 2'}
 
     #First pass
     for record in messages:
@@ -127,6 +131,16 @@ def main(argv):
         if record.name == 'device_settings':
             decoder.load_rec(record)
             utc_offset_hours = int(decoder.fields["time_offset"].replace(":00 min", "")) / 60 / 60
+        if record.name=="file_id":
+            decoder.load_rec(record)
+            owner=ET.SubElement(uddf_diver,"owner")
+            equip=ET.SubElement(owner,"equipment")
+            id_comp=decoder.fields["serial_number"]
+            dive_comp=ET.SubElement(equip, "divecomputer", id=id_comp)
+            product_model=decoder.fields["garmin_product"]
+            ET.SubElement(dive_comp, "model").text = products.get(str(product_model))
+            ET.SubElement(dive_comp, "manufacturer").text = "Garmin"
+
         if record.name == 'session':  # Lat/Long
             decoder.load_rec(record)
             ET.SubElement(uddf_site,"name")
@@ -200,10 +214,11 @@ def main(argv):
     uddf_repetitiongroup.append(uddf_dive)
     uddf_profiledata.append(uddf_repetitiongroup)
     uddf_doc.append(uddf_generator)
-    uddf_divesite.append(uddf_site)
+    uddf_doc.append(uddf_diver)
     uddf_doc.append(uddf_divesite)
     uddf_doc.append(uddf_gasdefinitions)
     uddf_doc.append(uddf_profiledata)
+    
     tree = ET.ElementTree(uddf_doc)
     tree.write(uddf_file)
 
