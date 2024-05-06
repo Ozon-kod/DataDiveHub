@@ -136,7 +136,10 @@ def fetch_dive_computer():
     return $doc//diver/owner/equipment/divecomputer/model
     '''
     results=execute_query(XqueryGetDiveComputer)
+    print(results)
     durations=extract_numbers_between_tags(results, 'model')
+    print (index)
+    print (len(durations))
     return durations[index]
 
 # Request for getting the duration for a file
@@ -315,43 +318,39 @@ def use_coordinates():
 #Upload route
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """retrieves file from front-end"""
     if 'xmlFile' not in request.files:
-        return jsonify(message='No file part'), 400
+        return jsonify(message='No file provided'), 400
     file = request.files['xmlFile']
     dive_computer = request.form.get('diveComputer', '')
 
-    # Retrieve coordinates from the session
-    latitude = session.get('latitude')
-    longitude = session.get('longitude')
-    name = session.get('divesite_name')
-    print(name)
-    if not latitude or not longitude or not name:
-        return jsonify(message='Data not set'), 400
-    
     if file.filename == '':
-        return jsonify(message='No selected file'), 400
+        return jsonify(message='No file selected'), 400
 
     if dive_computer == 'computer2':  # Garmin
         if not file.filename.endswith('.fit'):
-            return jsonify(message='Invalid file format, please upload a FIT file for Garmin'), 400
-        xml_data, error = process_garmin_file(file,latitude, longitude, name)
+            return jsonify(message='Please upload a FIT file for Garmin'), 400
+        # Check for coordinate data
+        if not all(session.get(k) for k in ['latitude', 'longitude', 'divesite_name']):
+            return jsonify(message='Missing coordinate data'), 400
+        # Process Garmin file with your defined function here
+        # Assuming process_garmin_file returns data and an error message if any
+        xml_data, error = process_garmin_file(file, **{k: session[k] for k in ['latitude', 'longitude', 'divesite_name']})
         if error:
             return jsonify(message=error), 500
     else:
         if not file.filename.endswith('.xml'):
-            return jsonify(message='Invalid file format, please upload an XML file'), 400
+            return jsonify(message='Please upload an XML file'), 400
         xml_data = file.read()
 
     filename = secure_filename(file.filename)
+    # Example function to add data to the database
     success, message = add_xml_data_to_database("dives", filename.replace('.fit', '.xml'), xml_data)
 
     if success:
-        session.pop('latitude', None)
-        session.pop('longitude', None)
-        session.pop('divesite_name', None)
+        # Clear session data
+        for key in ['latitude', 'longitude', 'divesite_name']:
+            session.pop(key, None)
         return jsonify(message=message), 200
-
     else:
         return jsonify(message=message), 500
 

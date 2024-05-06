@@ -829,6 +829,19 @@ function isValidLongitude(lon) {
 }
     // Event listener to handle file selection and upload file
     document.getElementById('fileInput').addEventListener('change', function() {
+    const diveComputerSelected = document.getElementById('diveComputer').value;
+    const file = this.files[0];
+    
+    // Check if UDDF is selected and enforce XML file type
+    if (diveComputerSelected === 'uddf' && file) {
+        const allowedExtensions = /\.xml$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            alert('Only XML files are allowed for UDDF. Please select a valid XML file.');
+            this.value = ''; // Reset the file input
+            return; // Stop the function if file is not valid
+        }
+    }
+
     if (this.files.length > 0) {
         const formData = new FormData();
         formData.append('xmlFile', this.files[0]);
@@ -839,21 +852,28 @@ function isValidLongitude(lon) {
             method: 'POST',
             body: formData,
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check the HTTP status code to determine if the operation was successful
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('Upload response:', data);
-            alert('File uploaded successfully!');
+            alert(data.message || 'File uploaded successfully!'); // Show server or success message
             this.value = ''; // Reset the file input
         })
         .catch(error => {
             console.error('Error uploading file:', error);
-            alert('Failed to upload file. Please check the console for more details.');
+            alert('Failed to upload file: ' + error.message);
         })
         .finally(() => {
             this.disabled = false; // Re-enable the file input after the upload
         });
     }
 });
+
 </script>
 </body>
 
