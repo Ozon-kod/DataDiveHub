@@ -239,7 +239,10 @@ table {
                       <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300 rounded-lg" required>
                       <button onclick="submitCoords()">Submit Coords</button>
                     </div>
-                    
+                    <div id="agreeCheckboxContainer" class="flex items-center mt-3 hidden">
+                      <input type="checkbox" id="agreeCheckbox" required>
+                      <label for="agreeCheckbox" class="ml-2">Agree to share personal information</label>
+                  </div>
                   </div>
                   </div>
                 </div>
@@ -352,7 +355,6 @@ table {
 
 </script>
 
-    
 <!-- Populate data below chart--><script>
 function populateContentBelow(file, index){
   //function to populate the chart below using selected fileName. Date,Name,GreatestDepth, AverageDepth,Certification etc
@@ -758,8 +760,6 @@ function handleMarkerClick(clickedMarkerIndex) {
             console.error('Dropdown not found');
         }
     }
-  
-
     // Add event listener to the upload link
     document.getElementById('upload-link').addEventListener('click', function(event) {
         event.preventDefault(); // Prevent the default action of the link
@@ -771,24 +771,53 @@ function handleMarkerClick(clickedMarkerIndex) {
     const selectedComputer = this.value;
     const coordsInput = document.getElementById('coordsInput');
     const fileInput = document.getElementById('fileInput');
+    const agreeCheckboxContainer = document.getElementById('agreeCheckboxContainer');
 
     // Show coordinates input for Garmin, keep file input hidden
     if (selectedComputer === 'computer2') {
         coordsInput.classList.remove('hidden');
+        agreeCheckboxContainer.classList.remove('hidden');
     } else {
         coordsInput.classList.add('hidden');
         // If not Garmin and a computer is selected, enable file input
         if (selectedComputer !== "") {
-            fileInput.classList.remove('hidden');
+            agreeCheckboxContainer.classList.remove('hidden'); // Show the agree checkbox
+            // Event listener for agree checkbox container
+            agreeCheckboxContainer.addEventListener('click', function() {
+                const agreeCheckbox = document.getElementById('agreeCheckbox');
+                const fileInput = document.getElementById('fileInput');
+  
+                if (agreeCheckbox.checked) {
+                    fileInput.classList.remove('hidden'); // Show file input
+                }
+            });
         } else {
             fileInput.classList.add('hidden');
+            agreeCheckboxContainer.classList.add('hidden'); // Hide the agree checkbox
         }
     }
-  });
+});
+
+// Event listener for agree checkbox
+document.getElementById('agreeCheckbox').addEventListener('change', function() {
+    const fileInput = document.getElementById('fileInput');
+    const isChecked = this.checked;
+
+    if (isChecked) {
+        fileInput.classList.remove('hidden'); // Show file input
+    } else {
+        fileInput.classList.add('hidden'); // Hide file input
+    }
+});
 
 // Function to submit coordinates
-
 function submitCoords() {
+    // Check if the agree checkbox is checked
+    const agreeCheckbox = document.getElementById('agreeCheckbox');
+    if (!agreeCheckbox.checked) {
+        alert("Please check the agreement checkbox.");
+        return;
+    }
     const latitude = parseFloat(document.getElementById('latitude').value);
     const longitude = parseFloat(document.getElementById('longitude').value);
     const divesite_name = document.getElementById('divesite_name').value;
@@ -816,7 +845,7 @@ function submitCoords() {
         })
         .catch(error => console.error('Error:', error));
     } else {
-        alert("Please enter latitude, longitude and divesite name.");
+        alert("Please enter latitude, longitude, and divesite name.");
     }
 }
 
@@ -827,11 +856,11 @@ function isValidLatitude(lat) {
 function isValidLongitude(lon) {
     return lon >= -180 && lon <= 180;
 }
-    // Event listener to handle file selection and upload file
-    document.getElementById('fileInput').addEventListener('change', function() {
+
+// Event listener to handle file selection and upload file
+document.getElementById('fileInput').addEventListener('change', function() {
     const diveComputerSelected = document.getElementById('diveComputer').value;
     const file = this.files[0];
-    
     // Check if UDDF is selected and enforce XML file type
     if (diveComputerSelected === 'uddf' && file) {
         const allowedExtensions = /\.xml$/i;

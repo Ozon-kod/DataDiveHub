@@ -23,7 +23,7 @@ Session(app)
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
 EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
-EXIST_DB_PASSWORD = 'hej' #change for your own password (admin default)
+EXIST_DB_PASSWORD = '123' #change for your own password (admin default)
 
 # Collection xquerys (non file specific) !!! Change all collection names to your own collection name
 XqueryGetFileName = """
@@ -136,10 +136,7 @@ def fetch_dive_computer():
     return $doc//diver/owner/equipment/divecomputer/model
     '''
     results=execute_query(XqueryGetDiveComputer)
-    print(results)
     durations=extract_numbers_between_tags(results, 'model')
-    print (index)
-    print (len(durations))
     return durations[index]
 
 # Request for getting the duration for a file
