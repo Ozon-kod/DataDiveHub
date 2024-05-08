@@ -7,6 +7,13 @@ import os
 from werkzeug.utils import secure_filename
 import xml.etree.ElementTree as ET
 
+"""
+    This module handles all intereactions between eXist database and front-end
+    Includes functions to execute queries and process results.
+    Diving-data hub is a web application that allows users to upload and view dive data.
+    The application is built using Flask and eXist-db.
+"""
+
 app = Flask(__name__)
 #Session which enables to use lattitude and longitude
 app.config['SECRET_KEY'] = 'rnadom'  
@@ -16,7 +23,7 @@ Session(app)
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
 EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
-EXIST_DB_PASSWORD = '123' #change for your own password (admin default)
+EXIST_DB_PASSWORD = 'hej' #change for your own password (admin default)
 
 # Collection xquerys (non file specific) !!! Change all collection names to your own collection name
 XqueryGetFileName = """
@@ -38,8 +45,16 @@ for $file in collection("dives")
 return $file//divesite/site/geography/longitude
 """
 
-# Function to execute XQuery queries
 def execute_query(query):
+    """ 
+    Function to execute an eXist XQuery query.
+
+    Args:
+        query (str): The XQuery query to execute.
+
+    Returns:
+        str: The result of the query as a string.
+    """
     auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
     params = {'_query': query}
     response = requests.get(f'{EXIST_DB_URL}/db/dives', params=params, auth=auth)
@@ -70,14 +85,16 @@ def extract_numbers_between_tags(xml_data, tag_name):
     numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
     return numbers
 
-# Starter for choosing template html file , !!!!Choose your own name for the render_Template file
+
 @app.route('/')
 def start():
+    """Starter, chooses html file"""
     return render_template("upload.html")
 
 # Return latitude
 @app.route('/get-latitude')
 def get_latitude():
+    """Retrieves latitude"""
     results = execute_query(XqueryGetDiveCoordinatesLatitude)
     latitude = extract_numbers_between_tags(results, 'latitude')
     return jsonify(latitude)
@@ -85,6 +102,7 @@ def get_latitude():
 # Return longitude
 @app.route('/get-longitude')
 def get_longitude():
+    """Retrieves longitude"""
     results = execute_query(XqueryGetDiveCoordinatesLongitude)
     longitude = extract_numbers_between_tags(results, 'longitude')
     return jsonify(longitude)
@@ -92,6 +110,7 @@ def get_longitude():
 # Return file list
 @app.route('/get-file-list')
 def get_file_list():
+    """Retrieves file list"""
     results = execute_query(XqueryGetFileName)
     regex = r"\/db\/dives\/([^<]+)\.xml"
     file_names = re.findall(regex, results)
@@ -100,6 +119,7 @@ def get_file_list():
 # Return dive names list
 @app.route('/get-dive-name')
 def get_dive_name():
+    """Retrieves dive name"""
     results = execute_query(XqueryGetDiveName)
     names = extract_numbers_between_tags(results, 'name')   
     return jsonify(names)
@@ -107,6 +127,7 @@ def get_dive_name():
 # Request for getting specific file diving computer
 @app.route('/get-dive-computer', methods=['POST'])
 def fetch_dive_computer():
+    """Retrieves dive computer"""
     data = request.get_json()
     selected_filename = data['fileName']
     index = data['index']
@@ -115,12 +136,16 @@ def fetch_dive_computer():
     return $doc//diver/owner/equipment/divecomputer/model
     '''
     results=execute_query(XqueryGetDiveComputer)
+    print(results)
     durations=extract_numbers_between_tags(results, 'model')
+    print (index)
+    print (len(durations))
     return durations[index]
 
 # Request for getting the duration for a file
 @app.route('/get-duration', methods=['POST'])
 def fetch_duration():
+    """Retrieves duration"""
     data = request.get_json()
     selected_filename = data['fileName']
     index = data['index']
@@ -135,6 +160,7 @@ def fetch_duration():
 # Request for getting the max depth of a file
 @app.route('/get-max-depth', methods=['POST'])
 def fetch_max_depth():
+    """Retrieves max depth"""
     data = request.get_json()
     selected_filename = data['fileName']
     index = data['index']
@@ -150,23 +176,24 @@ def fetch_max_depth():
 # Request for getting the files date
 @app.route('/get-date', methods=['POST'])
 def fetch_date():
+    """Retrieves date"""
     data = request.get_json()
     selected_filename = data['fileName']
     index = data['index']
     XqueryGetDate = f'''
     for $doc in collection(/db/dives/{selected_filename})
-    return $doc//generator/date
+    return $doc//profiledata/repetitiongroup/dive/informationbeforedive/datetime
     '''
     results = execute_query(XqueryGetDate)
-    year=extract_numbers_between_tags(results, 'year')
-    month=extract_numbers_between_tags(results, 'month')
-    day=extract_numbers_between_tags(results, 'day')
-    result = "-".join([year[index], month[index], day[index]])
+    new = extract_numbers_between_tags(results, 'datetime')
+    result = new[index]
+    result = result[0:10]
     return result
 
 # Waypoints below, to create graph, routes for depth, time and temp.
 @app.route('/dive-depth', methods=['POST'])
 def fetch_wDepth():
+    """Retrieves dive depth from waypoints"""
     data = request.get_json()
     depths = []
     selected_filename = data['fileName']
@@ -183,6 +210,7 @@ def fetch_wDepth():
 
 @app.route('/dive-time', methods=['POST'])
 def fetch_wDiveTime():
+    """Retrieves dive time from waypoints"""
     data = request.get_json()
     divetime = []
     selected_filename = data['fileName']
@@ -199,6 +227,7 @@ def fetch_wDiveTime():
 
 @app.route('/dive-temperature', methods=['POST'])
 def fetch_wDiveTemp():
+    """Retrieves dive temperature from waypoints"""
     data = request.get_json()
     temperatures = []
     selected_filename = data['fileName']
@@ -213,8 +242,12 @@ def fetch_wDiveTemp():
         temperatures.append(float(depth_match.group(1)))
     return temperatures
 
-#Add file to database
+
 def add_xml_data_to_database(database_name, document_name, xml_data):
+    """
+    Adds XML data to the database
+    Database name, document name and XML data are required
+    """
     url = f"{EXIST_DB_URL}/db/{database_name}/{document_name}"
     auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
     headers = {'Content-Type': 'application/xml'}
@@ -225,38 +258,32 @@ def add_xml_data_to_database(database_name, document_name, xml_data):
     except requests.exceptions.RequestException as e:
         return False, f"Error adding file to the database: {e}"
     
-#Update garmin xml file with coordniates
-def update_xml_with_coordinates(filepath, latitude, longitude):
+def update_xml_with_coordinates(filepath, latitude, longitude, divesite_name):
+    """
+    Updates the XML file with the given coordinates
+    filepath, latitude, longitude and divesite name are required
+    """
     tree = ET.parse(filepath)
     root = tree.getroot()
     
     for divesite in root.findall('.//divesite'):
-        geo = divesite.find('geography')
+        site = divesite.find('site')
+        name=site.find('name')
+        geo = site.find('geography')
         lat_elem = geo.find('latitude')
         long_elem = geo.find('longitude')
-        
         if lat_elem is not None:
             lat_elem.text = str(latitude)
         if long_elem is not None:
             long_elem.text = str(longitude)
-    
-    tree.write(filepath)  # Save changes back to the file
-    
-    # Assuming the structure includes a single divesite with geography
-    for divesite in root.findall('.//divesite'):
-        geo = divesite.find('geography')
-        lat_elem = geo.find('latitude')
-        long_elem = geo.find('longitude')
-        
-        if lat_elem is not None:
-            lat_elem.text = str(latitude)
-        if long_elem is not None:
-            long_elem.text = str(longitude)
+        if name is not None:
+            name.text = str(divesite_name)
     
     tree.write(filepath)  # Save changes back to the file
 
-#function to process fit garmin file
-def process_garmin_file(file, latitude, longitude):
+#function for running convertion on garmin fit file
+def process_garmin_file(file, latitude, longitude, name):
+    """Functions for the convertion of a garmin fit file to a uddf xml file"""
     input_filepath = os.path.join("testupload", secure_filename(file.filename))
     output_filepath = os.path.join("testupload", secure_filename(file.filename.replace('.fit', '.xml')))
     open(output_filepath, 'a').close()
@@ -266,7 +293,8 @@ def process_garmin_file(file, latitude, longitude):
     command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
     try:
         subprocess.run(command, check=True)
-        update_xml_with_coordinates(output_filepath, latitude, longitude)
+        print(name)
+        update_xml_with_coordinates(output_filepath, latitude, longitude, name)
         with open(output_filepath, 'rb') as f:
             xml_data = f.read()
         os.remove(input_filepath)  
@@ -275,56 +303,60 @@ def process_garmin_file(file, latitude, longitude):
     except subprocess.CalledProcessError as e:
         return None, f"Error processing file: {e}"
     
-# Route to receive latitude and longitude coordinates from frontend
+# Route to receive latitude, longitude and name from frontend
 @app.route('/use-coordinates', methods=['POST'])
 def use_coordinates():
+    """Receives latitude, longitude and name from frontend"""
     data = request.get_json()
     session['latitude'] = data.get('latitude')
     session['longitude'] = data.get('longitude')
+    session['divesite_name']=data.get('divesite_name')
 
-    return jsonify({'message': 'Coordinates stored for future use'})
+    return jsonify({'message': 'Data stored for future use'})
 
 
+#Upload route
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'xmlFile' not in request.files:
-        return jsonify(message='No file part'), 400
+        return jsonify(message='No file provided'), 400
     file = request.files['xmlFile']
     dive_computer = request.form.get('diveComputer', '')
 
-    # Retrieve coordinates from the session
-    latitude = session.get('latitude')
-    longitude = session.get('longitude')
-    if not latitude or not longitude:
-        return jsonify(message='Latitude or longitude not set'), 400
-    
     if file.filename == '':
-        return jsonify(message='No selected file'), 400
+        return jsonify(message='No file selected'), 400
 
     if dive_computer == 'computer2':  # Garmin
         if not file.filename.endswith('.fit'):
-            return jsonify(message='Invalid file format, please upload a FIT file for Garmin'), 400
-        xml_data, error = process_garmin_file(file,latitude, longitude)
+            return jsonify(message='Please upload a FIT file for Garmin'), 400
+        # Check for coordinate data
+        if not all(session.get(k) for k in ['latitude', 'longitude', 'divesite_name']):
+            return jsonify(message='Missing coordinate data'), 400
+        # Process Garmin file with your defined function here
+        # Assuming process_garmin_file returns data and an error message if any
+        xml_data, error = process_garmin_file(file, **{k: session[k] for k in ['latitude', 'longitude', 'divesite_name']})
         if error:
             return jsonify(message=error), 500
     else:
         if not file.filename.endswith('.xml'):
-            return jsonify(message='Invalid file format, please upload an XML file'), 400
+            return jsonify(message='Please upload an XML file'), 400
         xml_data = file.read()
 
     filename = secure_filename(file.filename)
+    # Example function to add data to the database
     success, message = add_xml_data_to_database("dives", filename.replace('.fit', '.xml'), xml_data)
 
     if success:
-        session.pop('latitude', None)
-        session.pop('longitude', None)
+        # Clear session data
+        for key in ['latitude', 'longitude', 'divesite_name']:
+            session.pop(key, None)
         return jsonify(message=message), 200
-
     else:
         return jsonify(message=message), 500
 
 @app.route('/download', methods=['POST'])
 def download_file():
+    """Downloads file from database"""
     data = request.get_json()
     selected_filename = data['fileName']
     if not selected_filename.endswith('.xml'):
@@ -335,5 +367,6 @@ def download_file():
     '''
     result=execute_query(XqueryGetFile)
     return result
+
 if __name__ == '__main__':
     app.run(debug=True)

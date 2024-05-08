@@ -94,9 +94,11 @@ table {
   }
   
   #map {
-      height: 80%; 
-      width: 70%; 
-  }
+    height: 80%;
+    width: 70%;
+    border: 2px solid #ccc; 
+    border-radius: 10px; 
+}
   
 </style>
 <!-- Style for the graph --><style>
@@ -109,6 +111,10 @@ table {
     bottom: 0;
     z-index: 10;
     width: 70%;
+  }
+
+  .chartjs-tooltip {
+    white-space: pre-line;
   }
   .additional-content-right {
     display: none;
@@ -223,12 +229,17 @@ table {
                         <option value="computer3">Deepblu</option>
                     </select>
                     <div id="coordsInput" class="hidden">
-                        <label for="latitude" class="text-gray-700">Latitude:</label>
-                        <input type="text" id="latitude" name="latitude" class="border-gray-300 rounded-lg">
-                        <label for="longitude" class="text-gray-700">Longitude:</label>
-                        <input type="text" id="longitude" name="longitude" class="border-gray-300 rounded-lg">
-                        <button onclick="submitCoords()">Submit Coords</button>
+                      <label for="latitude" class="text-gray-700">Latitude:</label>
+                      <input type="number" id="latitude" name="latitude" class="border-gray-300 rounded-lg"
+                             required min="-90" max="90" step="0.000001" placeholder="Enter latitude (-90 to 90)">
+                      <label for="longitude" class="text-gray-700">Longitude:</label>
+                      <input type="number" id="longitude" name="longitude" class="border-gray-300 rounded-lg"
+                             required min="-180" max="180" step="0.000001" placeholder="Enter longitude (-180 to 180)">
+                      <label for="divesite_name" class="text-gray-700">Divesite name:</label>
+                      <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300 rounded-lg" required>
+                      <button onclick="submitCoords()">Submit Coords</button>
                     </div>
+                    
                   </div>
                   </div>
                 </div>
@@ -251,7 +262,7 @@ table {
                 <canvas id="diveTableSummary"></canvas>
             </div>
             <div class="graph-container">
-              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 hover:text-gray-900 text-white rounded ">More Info</button>
+              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 hover:text-gray-900 text-white rounded ">Click for more data</button>
               <canvas id="diveProfile"></canvas>
               <div class="additional-content-below">
                 <!-- Content to be displayed below the graph -->
@@ -312,7 +323,7 @@ table {
               <span id="wTemp"></span>
             </div>
             <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Current change:</span></strong>
+              <strong><span class="text-black">Increase/Decrease rate:</span></strong>
               <span id="wChange"></span>
             </div>
           </div>
@@ -362,10 +373,16 @@ function populateContentBelow(file, index){
     document.querySelector('#greatestDepth').textContent = gDepth + " m";
   })
 
-  fetchData('/get-duration', file , index, duration=> {
-    duration = (duration/60).toFixed(2);
-    document.querySelector('#diveduration').textContent = duration + " minutes";
-  })
+  fetchData('/get-duration', file , index, duration => {
+    let totalSeconds = duration;
+    let minutes = Math.floor(totalSeconds / 60);
+    let seconds = Math.floor(totalSeconds % 60);
+
+    // Format the time as xx:xx
+    let formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    document.querySelector('#diveduration').textContent = formattedTime;
+});
 
   fetchData('/get-dive-computer', file, index, computer => {
     document.querySelector('#diveComp').textContent = computer;
@@ -446,6 +463,7 @@ function populateContentBelow(file, index){
                       labels: sortedTimeData, // time on x-axis
                       datasets: [
                           {
+                              label: 'Dive Depth',
                               data: sortedDepthData,
                               borderColor: 'rgba(173, 216, 230, 0.8)',
                               backgroundColor: 'rgba(173, 216, 230, 0.4)',
@@ -484,60 +502,66 @@ function populateContentBelow(file, index){
                                   propagate: false,
                               },
                               tooltip: {
-                                  mode: 'index',
-                                  intersect: false,
-                                  callbacks: {  
-                                      // Custom tooltip function to include temperature
-                                      label: function (context) {
-                                          let label = context.dataset.label || '';
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {  
+                                    // Custom tooltip function to include temperature
+                                    label: function (context) {
+                                        let label = '';
 
-                                          if (context.parsed.y !== null) {
-                                              label += '\nDepth: ' + context.parsed.y*(-1) + ' m';
-                                              document.querySelector('#wDepth').textContent = context.parsed.y.toFixed(2) * (-1) + ' m';
-                                          }
+                                        // Include time
+                                        if (context.parsed.x !== null) {
+                                            let totalSeconds = context.parsed.x;
+                                            let minutes = Math.floor(totalSeconds / 60);
+                                            let seconds = totalSeconds % 60;
 
-                                          if (context.parsed.x !== null) {
-                                              document.querySelector('#wTime').textContent = (context.parsed.x/60).toFixed(2);
-                                          }
+                                            // Format the time as min:sec
+                                            let formattedTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+                                            label += 'Time: ' + formattedTime + " min:sec ";
+                                            document.querySelector('#wTime').textContent = formattedTime;
+                                        }
 
-                                          // Calculate slope (k value) between two consecutive points
-                                          const dataIndex = context.dataIndex;
-                                          if (dataIndex > 0 && dataIndex < sortedTimeData.length) {
-                                              const y1 = sortedDepthData[dataIndex - 10];
-                                              const y2 = sortedDepthData[dataIndex];
-                                              const x1 = sortedTimeData[dataIndex - 10]/60;
-                                              const x2 = sortedTimeData[dataIndex]/60;
+                                        // Include depth
+                                        if (context.parsed.y !== null) {
+                                            label += 'Depth: ' + (-1 * context.parsed.y).toFixed(2) + ' m ';
+                                            document.querySelector('#wDepth').textContent = (-1 * context.parsed.y).toFixed(2) + ' m' ;
+                                        }
 
-                                              // Calculate slope
-                                              const k = (y2 - y1) / (x2 - x1);
-                                              threshold = 0.1;
-                                              // Display slope (k value) with arrow indicating direction if significant
-                                              let slopeText;
-                                              if (Math.abs(k) > threshold) {
-                                                  const arrowIcon = k > 0 ? '➚' : k < 0 ? '➘' : '';
-                                                  slopeText = k.toFixed(2) + ' ' + arrowIcon;
-                                              } else {
-                                                  slopeText = 'No significant change';
-                                              }
-
-                                              label += '\nChange: ' + slopeText;
-                                              document.querySelector('#wChange').textContent = slopeText;
-                                          }
-
-
-                                          // Include temperature 
-                                          if (context.dataset.temperature !== undefined) {
+                                        // Include temperature 
+                                        if (context.dataset.temperature !== undefined) {
                                             var temperatureKelvin = parseFloat(context.dataset.temperature[context.dataIndex]);
                                             var temperatureCelsius = (temperatureKelvin - 273.15).toFixed(1);
-                                            label += '\nTemperature: ' + temperatureCelsius + ' °C';
-                                            document.querySelector('#wTemp').textContent = temperatureCelsius + ' °C';
-                                          }
+                                            label += 'Temp: ' + temperatureCelsius + ' °C ';
+                                            document.querySelector('#wTemp').textContent = temperatureCelsius + ' °C ';
+                                        }
 
-                                          return label;
-                        
-                                      },
-                                  },
-                              },
+                                        // Calculate slope (gradient)
+                                        const dataIndex = context.dataIndex;
+                                        if (dataIndex > 0 && dataIndex < sortedTimeData.length) {
+                                            const y1 = sortedDepthData[dataIndex - 10];
+                                            const y2 = sortedDepthData[dataIndex];
+                                            const x1 = sortedTimeData[dataIndex - 10] / 60;
+                                            const x2 = sortedTimeData[dataIndex] / 60;
+
+                                            // Calculate slope
+                                            const k = (y2 - y1) / (x2 - x1);
+                                            threshold = 0.1;
+                                            // Display slope (gradient) with arrow indicating direction if significant
+                                            let slopeText;
+                                            if (Math.abs(k) > threshold) {
+                                                const arrowIcon = k > 0 ? '➚' : k < 0 ? '➘' : '';
+                                                slopeText = k.toFixed(2) + ' ' + arrowIcon;
+                                            } else {
+                                                slopeText = 'No significant change';
+                                            }
+                                            label += 'Gradient: ' + slopeText + " m/min ";
+                                            document.querySelector('#wChange').textContent = slopeText + " m/min ";
+                                        }
+
+                                        return label;
+                                    },
+                                }
+                            },
                           },
                           pointRadius: 0, // Hide data points
                           fill: 'origin', // Fill area below the line
@@ -582,9 +606,9 @@ function populateContentBelow(file, index){
     function toggleMoreInfoButton(minimized) {
         const moreInfoBtn = document.getElementById('more-info');
         if (minimized) {
-            moreInfoBtn.textContent = 'More Info'; // Change button text to "More Info"
+            moreInfoBtn.textContent = 'Click for more data'; // Change button text to "More Info"
         } else {
-            moreInfoBtn.textContent = 'Click to Minimize'; // Change button text to "Click to Minimize"
+            moreInfoBtn.textContent = 'Click to minimize data'; // Change button text to "Click to Minimize"
         }
     }
         })}
@@ -597,7 +621,13 @@ function populateContentBelow(file, index){
         [-90, 180]  // South East
     ];
 
-    var map = L.map('map').setView([51.505, -0.09], 13); // Initialize Leaflet map
+    // Initialize Leaflet map with max bounds and zoomed out view
+    var map = L.map('map', {
+        maxBounds: maxMapBounds,
+        maxBoundsViscosity: 1.0, // Ensure that the user cannot drag the map out of bounds
+        zoom: 2, // Set the initial zoom level to zoom out
+        center: [0, 0] // Set the initial center of the map
+    });
     // Add Mapbox tile layer
     L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
             attribution: '© Diving Data Hub',
@@ -757,19 +787,26 @@ function handleMarkerClick(clickedMarkerIndex) {
   });
 
 // Function to submit coordinates
+
 function submitCoords() {
-    const latitude = document.getElementById('latitude').value;
-    const longitude = document.getElementById('longitude').value;
+    const latitude = parseFloat(document.getElementById('latitude').value);
+    const longitude = parseFloat(document.getElementById('longitude').value);
+    const divesite_name = document.getElementById('divesite_name').value;
     const fileInput = document.getElementById('fileInput');
 
-    if (latitude && longitude) {
+    if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+        alert("Please enter valid latitude and longitude values.");
+        return;
+    }
+
+    if (divesite_name) {
         // Send the coordinates to the backend
         fetch('/use-coordinates', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ latitude: latitude, longitude: longitude })
+            body: JSON.stringify({ latitude: latitude, longitude: longitude, divesite_name: divesite_name })
         })
         .then(response => response.json())
         .then(data => {
@@ -779,11 +816,32 @@ function submitCoords() {
         })
         .catch(error => console.error('Error:', error));
     } else {
-        alert("Please enter both latitude and longitude.");
+        alert("Please enter latitude, longitude and divesite name.");
     }
 }
+
+function isValidLatitude(lat) {
+    return lat >= -90 && lat <= 90;
+}
+
+function isValidLongitude(lon) {
+    return lon >= -180 && lon <= 180;
+}
     // Event listener to handle file selection and upload file
-  document.getElementById('fileInput').addEventListener('change', function() {
+    document.getElementById('fileInput').addEventListener('change', function() {
+    const diveComputerSelected = document.getElementById('diveComputer').value;
+    const file = this.files[0];
+    
+    // Check if UDDF is selected and enforce XML file type
+    if (diveComputerSelected === 'uddf' && file) {
+        const allowedExtensions = /\.xml$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            alert('Only XML files are allowed for UDDF. Please select a valid XML file.');
+            this.value = ''; // Reset the file input
+            return; // Stop the function if file is not valid
+        }
+    }
+
     if (this.files.length > 0) {
         const formData = new FormData();
         formData.append('xmlFile', this.files[0]);
@@ -794,21 +852,28 @@ function submitCoords() {
             method: 'POST',
             body: formData,
         })
-        .then(response => response.json())
+        .then(response => {
+            // Check the HTTP status code to determine if the operation was successful
+            if (!response.ok) {
+                throw new Error('Server responded with ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('Upload response:', data);
-            alert('File uploaded successfully!');
+            alert(data.message || 'File uploaded successfully!'); // Show server or success message
             this.value = ''; // Reset the file input
         })
         .catch(error => {
             console.error('Error uploading file:', error);
-            alert('Failed to upload file. Please check the console for more details.');
+            alert('Failed to upload file: ' + error.message);
         })
         .finally(() => {
             this.disabled = false; // Re-enable the file input after the upload
         });
     }
 });
+
 </script>
 </body>
 
