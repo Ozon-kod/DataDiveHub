@@ -326,12 +326,15 @@ def upload_file():
     if dive_computer == 'computer2':  # Garmin
         if not file.filename.endswith('.fit'):
             return jsonify(message='Please upload a FIT file for Garmin'), 400
-        # Check for coordinate data
-        if not all(session.get(k) for k in ['latitude', 'longitude', 'divesite_name']):
-            return jsonify(message='Missing coordinate data'), 400
+    # Retrieve coordinates from the session
+        latitude = session.get('latitude')
+        longitude = session.get('longitude')
+        name = session.get('divesite_name')
+        if not latitude or not longitude or not name:
+            return jsonify(message='Data not set'), 400
         # Process Garmin file with your defined function here
         # Assuming process_garmin_file returns data and an error message if any
-        xml_data, error = process_garmin_file(file, **{k: session[k] for k in ['latitude', 'longitude', 'divesite_name']})
+        xml_data, error = process_garmin_file(file, latitude,longitude,name)
         if error:
             return jsonify(message=error), 500
     else:
