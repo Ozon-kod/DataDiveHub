@@ -1,909 +1,372 @@
-<!DOCTYPE html>
-<html lang="en">
+import requests, re
+from flask import Flask, render_template, jsonify, request
+from flask_session import Session
+from flask import session
+import subprocess
+import os
+from werkzeug.utils import secure_filename
+import xml.etree.ElementTree as ET
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+"""
+    This module handles all intereactions between eXist database and front-end
+    Includes functions to execute queries and process results.
+    Diving-data hub is a web application that allows users to upload and view dive data.
+    The application is built using Flask and eXist-db.
+"""
 
-  <title>Diving Dashboard</title>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart-->
-</head>
-<style>
-/* Chrome, Safari, Edge, Opera */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
--webkit-appearance: none;
-margin: 0;
-}
-td {
-    border: 1px solid #dddddd;
-    text-align: left;
-    padding: 8px;
-    cursor: pointer; 
-    width: auto; 
-}
+app = Flask(__name__)
+#Session which enables to use lattitude and longitude
+app.config['SECRET_KEY'] = 'rnadom'  
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
-th {
-    background-color: #f2f2f2;
-}
+# eXist-db connection settings
+EXIST_DB_URL = 'http://localhost:8080/exist/rest'
+EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
+EXIST_DB_PASSWORD = 'hej' #change for your own password (admin default)
 
-tr:hover {
-    background-color: #f5f5f5; 
-}
+# Collection xquerys (non file specific) !!! Change all collection names to your own collection name
+XqueryGetFileName = """
+for $file in collection('/dives') 
+return base-uri($file) 
+"""
 
-table {
-    border-collapse: collapse;
-    width: 100%; 
-}
-</style>
-<!-- Style for the dive overview--><style>
-    .canvas-container {
-        display: none;
-        position: absolute;
-        top: 92%; /* Position below the map */
-        left: 320px;
-        right: 0;
-        height: auto; 
-        width: calc(100% - 340px); /
-    }
+XqueryGetDiveName = """
+for $file in collection("dives")
+return $file//divesite/site/name
+"""
 
-    /* Styles for the canvas and table containers */
-    .container {
-        padding: 20px;
-        background-color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
+XqueryGetDiveCoordinatesLatitude = """
+for $file in collection("dives")
+return $file//divesite/site/geography/latitude
+"""
+XqueryGetDiveCoordinatesLongitude = """
+for $file in collection("dives")
+return $file//divesite/site/geography/longitude
+"""
 
-    .canvas-container canvas {
-        width: 100%; 
-        height: 200px;
-    }
+def execute_query(query):
+    """ 
+    Function to execute an eXist XQuery query.
 
+    Args:
+        query (str): The XQuery query to execute.
+
+    Returns:
+        str: The result of the query as a string.
+    """
+    auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
+    params = {'_query': query}
+    response = requests.get(f'{EXIST_DB_URL}/db/dives', params=params, auth=auth)
+    if response.status_code == 200:
+        return response.text
+    else:
+        return None
+
+def extract_numbers_between_tags(xml_data, tag_name):
+    """
+    Extracts numbers between specified XML tags from XML data.
     
-    .title {
-        font-size: 24px;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 10px;
-    }
-
-    .subtitle {
-        font-size: 16px;
-        font-weight: normal;
-        color: #666;
-        margin-bottom: 20px;
-    }
-</style>
-<!-- Style for the map --><style>
-  #map-container {
-    position: absolute;
-    display: block;
-    top: 10%;
-    left: 320px; 
-    right: 0;
-    bottom: 0;
-    z-index: 10; 
+    Args:
+    xml_data: The XML data as a string.
+    tag_name: The name of the XML tag to extract numbers from.
     
-  }
-  
-  #map {
-    height: 80%;
-    width: 70%;
-    border: 2px solid #ccc; 
-    border-radius: 10px; 
-}
-  
-</style>
-<!-- Style for the graph --><style>
-    .graph-container {
-    position: absolute;
-    display: none;
-    top: 10%;
-    left: 320px;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    width: 70%;
-  }
+    Returns:
+    list: List of numbers extracted from between specified XML tags.
+    """
+    # Find the indices of the first and last tag occurrences
+    start_tag = '<' + tag_name + '>'
+    end_tag = '</' + tag_name + '>'
+    start_index = xml_data.find(start_tag)
+    end_index = xml_data.rfind(end_tag)
+    # Extract the substring containing only specified tags
+    tag_data = xml_data[start_index:end_index+len(end_tag)]
+    # Regular expression (re) to extract numbers between specified tags
+    numbers = re.findall(r'<{}>(.*?)</{}>'.format(tag_name, tag_name), tag_data)
+    return numbers
 
-  .chartjs-tooltip {
-    white-space: pre-line;
-  }
-  .additional-content-right {
-    display: none;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 10px;
-    background-color: #fefcfc;
-    position: absolute;
-    right: 5px;
-    top: 24%; /* Adjust as needed */
-    width: 28%;
-  }
 
-  .additional-content-below {
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 10px;
-    background-color: #fefcfc;
-    display: none;
-    float: left;
-    width: 110%;
-  }
+@app.route('/')
+def start():
+    """Starter, chooses html file"""
+    return render_template("upload.html")
 
-.more-info {
-  background-color: blue;
-}
+# Return latitude
+@app.route('/get-latitude')
+def get_latitude():
+    """Retrieves latitude"""
+    results = execute_query(XqueryGetDiveCoordinatesLatitude)
+    latitude = extract_numbers_between_tags(results, 'latitude')
+    return jsonify(latitude)
 
-.additional-content-right div div {
-  display: flex;
-  margin-bottom: 1px; /* Add margin for space between items */
-}
-.additional-content-right div {
-  display: flex;
-  flex-direction: column;
-}
-.additional-content-right span {
-  white-space: nowrap; /* Prevent line breaks within spans */
-}
-  </style>
-  
+# Return longitude
+@app.route('/get-longitude')
+def get_longitude():
+    """Retrieves longitude"""
+    results = execute_query(XqueryGetDiveCoordinatesLongitude)
+    longitude = extract_numbers_between_tags(results, 'longitude')
+    return jsonify(longitude)
 
-<body>
-  <div>
-    <!-- Navbar and side bar -->
-    <nav class="bg-white border-b border-gray-200 fixed z-30 w-full">
-      <div class="px-3 py-3 lg:px-5 lg:pl-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center justify-start">
-            <button id="toggleSidebarMobile" aria-expanded="true" aria-controls="sidebar"
-              class="lg:hidden mr-2 text-gray-600 hover:text-gray-900 cursor-pointer p-2 hover:bg-gray-100 focus:bg-gray-100 focus:ring-2 focus:ring-gray-100 rounded">
-              <svg id="toggleSidebarMobileHamburger" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"
-                xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd"
-                  d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                  clip-rule="evenodd"></path>
-              </svg>
-              <svg id="toggleSidebarMobileClose" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"
-                xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clip-rule="evenodd"></path>
-              </svg>
-            </button>
-            <a id="diving-return" href="#" class="text-xl font-bold flex items-center lg:ml-2.5">
-              <img src="https://demo.themesberg.com/windster/images/logo.svg" class="h-6 mr-2" alt="Windster Logo" />
-              <span class="self-center whitespace-nowrap">Diving</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </nav>
-    <div class="flex overflow-hidden bg-white pt-16">
-        <aside id="sidebar"
-          class="fixed hidden z-20 h-full top-0 left-0 pt-16 flex lg:flex flex-shrink-0 flex-col w-64 transition-width duration-75"
-          aria-label="Sidebar">
-          <div class="relative flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white pt-0">
-            <div class="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <div class="flex-1 px-3 bg-white divide-y space-y-1">
-                <ul class="space-y-2 pb-2">
-                  <li>
-                    <a id="dashboard-return" href="#"
-                      class="text-base text-gray-900 font-normal rounded-lg flex items-center p-2 hover:bg-gray-100 group">
-                      <svg class="w-6 h-6 text-gray-500 group-hover:text-gray-900 transition duration-75"
-                        fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
-                        <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path>
-                      </svg>
-                      <span class="ml-3">Dashboard</span>
-                    </a>
-                  </li>
-                </ul>
-                <div class="space-y-2 pt-2">
-                  <!-- File input -->
-                  <input type="file" id="fileInput" name="xmlFile" class="hidden" />
-                  <!-- Upload Data button -->
-                  <a id="upload-link" href="#" class="text-base text-gray-900 font-normal rounded-lg hover:bg-gray-100 group transition duration-75 flex items-center p-2">
-                      <svg class="w-5 h-5 text-gray-500 flex-shrink-0 group-hover:text-gray-900 transition duration-75"
-                          aria-hidden="true" focusable="false" data-prefix="fas" data-icon="gem" role="img"
-                          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                          <path fill="currentColor"
-                          d="M378.7 32H133.3L256 182.7L378.7 32zM512 192l-107.4-141.3L289.6 192H512zM107.4 50.67L0 192h222.4L107.4 50.67zM244.3 474.9C247.3 478.2 251.6 480 256 480s8.653-1.828 11.67-5.062L510.6 224H1.365L244.3 474.9z">
-                          </path>
-                      </svg>
-                      <span class="ml-4">Upload Data</span>
-                  </a>
-                  <div id="dive-computer-dropdown" class="hidden">
-                    <label for="diveComputer" class="text-gray-700">Select Dive Computer:</label>
-                    <select id="diveComputer" name="diveComputer" class="border-gray-300 rounded-lg">
-                        <option value="">Select...</option>
-                        <option value="computer1">Uddf</option>
-                        <option value="computer2">Garmin</option>
-                        <option value="computer3">Deepblu</option>
-                    </select>
-                    <div id="coordsInput" class="hidden">
-                      <label for="latitude" class="text-gray-700">Latitude:</label>
-                      <input type="number" id="latitude" name="latitude" class="border-gray-300 rounded-lg"
-                             required min="-90" max="90" step="0.000001" placeholder="Enter latitude (-90 to 90)">
-                      <label for="longitude" class="text-gray-700">Longitude:</label>
-                      <input type="number" id="longitude" name="longitude" class="border-gray-300 rounded-lg"
-                             required min="-180" max="180" step="0.000001" placeholder="Enter longitude (-180 to 180)">
-                      <label for="divesite_name" class="text-gray-700">Divesite name:</label>
-                      <input type="text" id="divesite_name" name="divesite_name" class="border-gray-300 rounded-lg" required>
-                      <button onclick="submitCoords()">Submit Coords</button>
-                    </div>
-                    <div id="agreeCheckboxContainer" class="flex items-center mt-3 hidden">
-                      <input type="checkbox" id="agreeCheckbox" required>
-                      <label for="agreeCheckbox" class="ml-2">Agree to share personal information</label>
-                  </div>
-                  </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-        <div id="map-container" class="h-full w-full">
-            <div id="map"></div>
-          </div>
-            <div class="canvas-container container">
-                <div class="title">Dives in location selected</div>
-                <div class="subtitle">Click on a dive to see more information</div>
-                <!-- Table row -->
-                <table>
-                  <tbody id="dive-list">
-                    <!-- fills out using js -->
-                </tbody>
-                </table>
-                <canvas id="diveTableSummary"></canvas>
-            </div>
-            <div class="graph-container">
-              <button id="more-info" class="bottom-10 left-0 p-2 m-4 bg-blue-500 hover:text-gray-900 text-white rounded ">Click for more data</button>
-              <canvas id="diveProfile"></canvas>
-              <div class="additional-content-below">
-                <!-- Content to be displayed below the graph -->
-                <!-- Content about the diver -->
-                <div class="flex flex-wrap mb-4">
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="nameLabel" class="text-black">Name:</span></strong>
-                    <span id="diverName"></span>
-                  </div>
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="dateLabel" class="text-black">Date:</span></strong>
-                    <span id="diveDate"></span>
-                  </div>
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="certLabel" class="text-black">Certification:</span></strong>
-                    <span id="diveCertification"></span>
-                  </div>
-                </div>
-                
-                <!-- Content about the dive -->
-                <div class="flex flex-wrap mb-4">
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="certLabel" class="text-black">Diving Computer:</span></strong>
-                    <span id="diveComp"></span>
-                  </div>
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="certLabel" class="text-black">Dive Duration:</span></strong>
-                    <span id="diveduration"></span>
-                  </div>
-                  <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-                    <strong><span id="certLabel" class="text-black">GreatestDepth:</span></strong>
-                    <span id="greatestDepth"></span>
-                  </div>
-                </div>
-                <!-- Download dive option -->
-                <div>
-                  <a href="#" id="downloadButton" class="bg-blue-500 text-white hover:text-gray-900 font-bold py-2 px-4 rounded border border-gray-500">
-                    Download Dive
-                  </a>
-                </div>
-            </div>
-          </div>
-        </div>
-        <div class="additional-content-right">
-          <!-- Content to be displayed to the right of the graph -->
-          Dynamic content (hover to see)
-          <div>
-            <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Time:</span></strong>
-              <span id="wTime"></span>
-            </div>
-            <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Depth:</span></strong>
-              <span id="wDepth"></span>
-            </div>
-            <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Temperature:</span></strong>
-              <span id="wTemp"></span>
-            </div>
-            <div class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-              <strong><span class="text-black">Increase/Decrease rate:</span></strong>
-              <span id="wChange"></span>
-            </div>
-          </div>
-        </div>
-    </div>
-  </div>
-</div>
-    <!--JS SCRIPTs-->
-<!-- Download dive func --> <script>
-  // Function to download the dive data
-  function download_dive(fileName, index) {
+# Return file list
+@app.route('/get-file-list')
+def get_file_list():
+    """Retrieves file list"""
+    results = execute_query(XqueryGetFileName)
+    regex = r"\/db\/dives\/([^<]+)\.xml"
+    file_names = re.findall(regex, results)
+    return jsonify(file_names)
 
-        // Fetch the data from the server
-        fetchData('/download', fileName, index, data=> {
-            // Convert the data into a Blob object
-            const blob = new Blob([data], { type: 'text/xml' });
-            console.log(data);
-            //Create a temporary link element
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = fileName // Set the filename for the downloaded file
-            link.click(); // Simulate a click on the link to initiate the download
-            window.URL.revokeObjectURL(link.href); // Release the object URL to free up memory
-        });
-    }
+# Return dive names list
+@app.route('/get-dive-name')
+def get_dive_name():
+    """Retrieves dive name"""
+    results = execute_query(XqueryGetDiveName)
+    names = extract_numbers_between_tags(results, 'name')   
+    return jsonify(names)
 
-</script>
+# Request for getting specific file diving computer
+@app.route('/get-dive-computer', methods=['POST'])
+def fetch_dive_computer():
+    """Retrieves dive computer"""
+    data = request.get_json()
+    selected_filename = data['fileName']
+    index = data['index']
+    XqueryGetDiveComputer = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//diver/owner/equipment/divecomputer/model
+    '''
+    results=execute_query(XqueryGetDiveComputer)
+    durations=extract_numbers_between_tags(results, 'model')
+    return durations[index]
 
-<!-- Populate data below chart--><script>
-function populateContentBelow(file, index){
-  //function to populate the chart below using selected fileName. Date,Name,GreatestDepth, AverageDepth,Certification etc
-  fetch('/get-dive-name')
-        .then(response => response.text())
-        .then(data => { 
-            data = data.slice(2, -3);
-            const regex = /"([^"]+)"/g;
-            const DiveNames = Array.from(data.matchAll(regex), match => match[1]);
-            const currentDiveName = DiveNames[index];
-            document.querySelector('#diverName').textContent = currentDiveName;
-          })
-  fetchData('/get-date', file, index, date=> {
-    document.querySelector('#diveDate').textContent = date;
-  })
+# Request for getting the duration for a file
+@app.route('/get-duration', methods=['POST'])
+def fetch_duration():
+    """Retrieves duration"""
+    data = request.get_json()
+    selected_filename = data['fileName']
+    index = data['index']
+    XqueryGetDuration = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//informationafterdive/diveduration
+    '''
+    results = execute_query(XqueryGetDuration)
+    durations = extract_numbers_between_tags(results, 'diveduration')
+    return durations[index]
 
-  fetchData('/get-max-depth', file , index, gDepth=> {
-    document.querySelector('#greatestDepth').textContent = gDepth + " m";
-  })
+# Request for getting the max depth of a file
+@app.route('/get-max-depth', methods=['POST'])
+def fetch_max_depth():
+    """Retrieves max depth"""
+    data = request.get_json()
+    selected_filename = data['fileName']
+    index = data['index']
+    XqueryGetGreatestDepth = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//informationafterdive/greatestdepth
+    '''
+    results = execute_query(XqueryGetGreatestDepth)
+    depths=extract_numbers_between_tags(results, 'greatestdepth')
+    result = depths[index]
+    return result
 
-  fetchData('/get-duration', file , index, duration => {
-    let totalSeconds = duration;
-    let minutes = Math.floor(totalSeconds / 60);
-    let seconds = Math.floor(totalSeconds % 60);
+# Request for getting the files date
+@app.route('/get-date', methods=['POST'])
+def fetch_date():
+    """Retrieves date"""
+    data = request.get_json()
+    selected_filename = data['fileName']
+    index = data['index']
+    XqueryGetDate = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//profiledata/repetitiongroup/dive/informationbeforedive/datetime
+    '''
+    results = execute_query(XqueryGetDate)
+    new = extract_numbers_between_tags(results, 'datetime')
+    result = new[index]
+    result = result[0:10]
+    return result
 
-    // Format the time as xx:xx
-    let formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+# Waypoints below, to create graph, routes for depth, time and temp.
+@app.route('/dive-depth', methods=['POST'])
+def fetch_wDepth():
+    """Retrieves dive depth from waypoints"""
+    data = request.get_json()
+    depths = []
+    selected_filename = data['fileName']
+    XqueryGetDiveDepth = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
+    '''
+    results = execute_query(XqueryGetDiveDepth)
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches: 
+        depth_match = re.search(r'<depth>(.*?)</depth>', match, re.DOTALL)
+        depths.append(float(depth_match.group(1)))
+    return depths 
+
+@app.route('/dive-time', methods=['POST'])
+def fetch_wDiveTime():
+    """Retrieves dive time from waypoints"""
+    data = request.get_json()
+    divetime = []
+    selected_filename = data['fileName']
+    XqueryGetDiveTime = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
+    '''
+    results = execute_query(XqueryGetDiveTime)
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches:
+        depth_match = re.search(r'<divetime>(.*?)</divetime>', match, re.DOTALL)
+        divetime.append(float(depth_match.group(1)))
+    return divetime
+
+@app.route('/dive-temperature', methods=['POST'])
+def fetch_wDiveTemp():
+    """Retrieves dive temperature from waypoints"""
+    data = request.get_json()
+    temperatures = []
+    selected_filename = data['fileName']
+    XqueryGetDiveTemp = f'''
+    for $doc in collection(/db/dives/{selected_filename})
+    return $doc//samples
+    '''
+    results = execute_query(XqueryGetDiveTemp)
+    matches = re.findall(r'<waypoint>(.*?)</waypoint>', results, re.DOTALL)
+    for match in matches:
+        depth_match = re.search(r'<temperature>(.*?)</temperature>', match, re.DOTALL)
+        temperatures.append(float(depth_match.group(1)))
+    return temperatures
+
+
+def add_xml_data_to_database(database_name, document_name, xml_data):
+    """
+    Adds XML data to the database
+    Database name, document name and XML data are required
+    """
+    url = f"{EXIST_DB_URL}/db/{database_name}/{document_name}"
+    auth = (EXIST_DB_USER, EXIST_DB_PASSWORD)
+    headers = {'Content-Type': 'application/xml'}
+    try:
+        response = requests.put(url, auth=auth, data=xml_data, headers=headers)
+        response.raise_for_status()
+        return True, "File uploaded successfully"
+    except requests.exceptions.RequestException as e:
+        return False, f"Error uploading file: {e}"
     
-    document.querySelector('#diveduration').textContent = formattedTime;
-});
-
-  fetchData('/get-dive-computer', file, index, computer => {
-    document.querySelector('#diveComp').textContent = computer;
-  })
-
-
-
-}
-
-
-
-</script>
-
-<!-- Fetch data --><script>
-  function fetchData(url, fileName, index, callback) {
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }, //pass both filename and index as data
-        body: JSON.stringify({ fileName: fileName, index: index })
-    })
-    .then(response => response.text())
-    .then(data => {
-        callback(data);
-    })
-    .catch(error => {
-        console.error(`Error fetching ${url}:`, error);
-    });
-  }
-</script>
-
-<!-- Dive profile click --><script>
-  function ShowDiveProfileClick(DiveName){
-    //Get the rowIndex which has been clicked
-    const rowIndex = parseInt(event.currentTarget.getAttribute('new-index'));
+def update_xml_with_coordinates(filepath, latitude, longitude, divesite_name):
+    """
+    Updates the XML file with the given coordinates
+    filepath, latitude, longitude and divesite name are required
+    """
+    tree = ET.parse(filepath)
+    root = tree.getroot()
     
-    fetch('/get-file-list')
-     .then(response => response.text())
-     .then(fileListString => {
-      fileListString = fileListString.slice(2, -3);
-      const regex = /"([^"]+)"/g;
-      // Split the string into an array of file names
-      const fileList = Array.from(fileListString.matchAll(regex), match => (match[1]));
-      // Retrieve the file name using the index (index starts as 1 we use zero here)
-      const selectedFileName = fileList[rowIndex-1];
+    for divesite in root.findall('.//divesite'):
+        site = divesite.find('site')
+        name=site.find('name')
+        geo = site.find('geography')
+        lat_elem = geo.find('latitude')
+        long_elem = geo.find('longitude')
+        if lat_elem is not None:
+            lat_elem.text = str(latitude)
+        if long_elem is not None:
+            long_elem.text = str(longitude)
+        if name is not None:
+            name.text = str(divesite_name)
+    
+    tree.write(filepath)  # Save changes back to the file
 
-      // Fetch depth data
-      fetchData('/dive-depth', selectedFileName, rowIndex,  depthList => {
-          depthList = depthList.slice(2, -3).replace(/"/g, "").split(",");
-          // Fetch temperature data
-          fetchData('/dive-temperature', selectedFileName, rowIndex,  tempList => {
-              tempList = tempList.slice(2, -3).replace(/"/g, "").split(",");              
-              // Fetch time data
-              fetchData('/dive-time', selectedFileName, rowIndex, timeList => {
-                  timeList = timeList.slice(2, -3).replace(/"/g, "").split(",");
-                  // Convert the fetched data into arrays of numbers
-                  const depthData = depthList.map(entry => parseFloat(entry.trim()));
-                  const tempData = tempList.map(entry => parseFloat(entry.trim()));
-                  const timeData = timeList.map(entry => parseFloat(entry.trim()));
-                  const invertedDepthData = depthData.map(depth => -depth);
-                  // Create an array of objects where each object represents a waypoint
-                  const waypoints = timeData.map((time, index) => ({
-                      time: time,
-                      depth: invertedDepthData[index],
-                      temp: tempData[index], // Include temperature as an attribute
-                  }));
-                  // Sort the waypoints by time 
-                  waypoints.sort((a, b) => a.time - b.time);
+#function for running convertion on garmin fit file
+def process_garmin_file(file, latitude, longitude, name):
+    """Functions for the convertion of a garmin fit file to a uddf xml file"""
+    input_filepath = os.path.join("testupload", secure_filename(file.filename))
+    output_filepath = os.path.join("testupload", secure_filename(file.filename.replace('.fit', '.xml')))
+    open(output_filepath, 'a').close()
 
-                  // Extract the sorted time, depth, and temperature data
-                  const sortedTimeData = waypoints.map(waypoint => waypoint.time);
-                  const sortedDepthData = waypoints.map(waypoint => waypoint.depth);
-                  const sortedTempData = waypoints.map(waypoint => waypoint.temp);
+    file.save(input_filepath)
 
-                  // Create the chart data using the sorted arrays
-                  const data = {
-                      labels: sortedTimeData, // time on x-axis
-                      datasets: [
-                          {
-                              label: 'Dive Depth',
-                              data: sortedDepthData,
-                              borderColor: 'rgba(173, 216, 230, 0.8)',
-                              backgroundColor: 'rgba(173, 216, 230, 0.4)',
-                              temperature: sortedTempData, //add temp as a dataset to later use it
-                          },
-                      ],
-                 };
-                  // Configuration options
-                  const config = {
-                      type: 'line',
-                      data: data,
-                      options: {
-                          scales: {
-                              x: {
-                                  title: {
-                                      display: true,
-                                      text: 'Divetime',
-                                  },
-                              },
-                              y: {
-                                  title: {
-                                      display: true,
-                                      text: 'Depth (m) ',
-                                  },
-                                  beginAtZero: true, // Start the axis at zero
-                              },
-                          },
-                          elements: {
-                              line: {
-                                  borderWidth: 2,
-                                  tension: 0.8,
-                              },
-                          },
-                          plugins: {
-                              filler: {
-                                  propagate: false,
-                              },
-                              tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {  
-                                    // Custom tooltip function to include temperature
-                                    label: function (context) {
-                                        let label = '';
+    command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
+    try:
+        subprocess.run(command, check=True)
+        update_xml_with_coordinates(output_filepath, latitude, longitude, name)
+        with open(output_filepath, 'rb') as f:
+            xml_data = f.read()
+        os.remove(input_filepath)  
+        os.remove(output_filepath)  
+        return xml_data, None
+    except subprocess.CalledProcessError as e:
+        return None, f"Error processing file: {e}"
+    
+# Route to receive latitude, longitude and name from frontend
+@app.route('/use-coordinates', methods=['POST'])
+def use_coordinates():
+    """Receives latitude, longitude and name from frontend"""
+    data = request.get_json()
+    session['latitude'] = data.get('latitude')
+    session['longitude'] = data.get('longitude')
+    session['divesite_name']=data.get('divesite_name')
 
-                                        // Include time
-                                        if (context.parsed.x !== null) {
-                                            let totalSeconds = context.parsed.x;
-                                            let minutes = Math.floor(totalSeconds / 60);
-                                            let seconds = totalSeconds % 60;
-
-                                            // Format the time as min:sec
-                                            let formattedTime = minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
-                                            label += 'Time: ' + formattedTime + " min:sec ";
-                                            document.querySelector('#wTime').textContent = formattedTime;
-                                        }
-
-                                        // Include depth
-                                        if (context.parsed.y !== null) {
-                                            label += 'Depth: ' + (-1 * context.parsed.y).toFixed(2) + ' m ';
-                                            document.querySelector('#wDepth').textContent = (-1 * context.parsed.y).toFixed(2) + ' m' ;
-                                        }
-
-                                        // Include temperature 
-                                        if (context.dataset.temperature !== undefined) {
-                                            var temperatureKelvin = parseFloat(context.dataset.temperature[context.dataIndex]);
-                                            var temperatureCelsius = (temperatureKelvin - 273.15).toFixed(1);
-                                            label += 'Temp: ' + temperatureCelsius + ' °C ';
-                                            document.querySelector('#wTemp').textContent = temperatureCelsius + ' °C ';
-                                        }
-
-                                        // Calculate slope (gradient)
-                                        const dataIndex = context.dataIndex;
-                                        if (dataIndex > 0 && dataIndex < sortedTimeData.length) {
-                                            const y1 = sortedDepthData[dataIndex - 10];
-                                            const y2 = sortedDepthData[dataIndex];
-                                            const x1 = sortedTimeData[dataIndex - 10] / 60;
-                                            const x2 = sortedTimeData[dataIndex] / 60;
-
-                                            // Calculate slope
-                                            const k = (y2 - y1) / (x2 - x1);
-                                            threshold = 0.1;
-                                            // Display slope (gradient) with arrow indicating direction if significant
-                                            let slopeText;
-                                            if (Math.abs(k) > threshold) {
-                                                const arrowIcon = k > 0 ? '➚' : k < 0 ? '➘' : '';
-                                                slopeText = k.toFixed(2) + ' ' + arrowIcon;
-                                            } else {
-                                                slopeText = 'No significant change';
-                                            }
-                                            label += 'Gradient: ' + slopeText + " m/min ";
-                                            document.querySelector('#wChange').textContent = slopeText + " m/min ";
-                                        }
-
-                                        return label;
-                                    },
-                                }
-                            },
-                          },
-                          pointRadius: 0, // Hide data points
-                          fill: 'origin', // Fill area below the line
-                      },
-                  };
-                  //chart
-                  const myChart = new Chart(
-                      document.getElementById('diveProfile'),
-                      config
-                  );
-              });
-          });
-      });
-    document.querySelector('#map-container').style.display= 'none';
-    document.querySelector('.graph-container').style.display = 'block';
-
-    //Below for button onclick and more dive information
-    document.getElementById('more-info').addEventListener('click', function(event) {
-      populateContentBelow(selectedFileName, rowIndex-1);
-      const additionalContentBelow = document.querySelector('.additional-content-below');
-      const additionalContentRight = document.querySelector('.additional-content-right');
-      const graphContainer = document.querySelector('.graph-container');
-      if (graphContainer.style.width === '50%') {
-          graphContainer.style.width = ''; // Reset width to default
-          toggleMoreInfoButton(true); // Change button text to "More Info"
-          additionalContentBelow.style.display = 'none'; // Show the content below the graph
-          additionalContentRight.style.display = 'none'; // Show the content below the graph
-        } else {
-            graphContainer.style.width = '50%'; // Set width to 50%
-            toggleMoreInfoButton(false); // Change button text to "Click to Minimize"
-            additionalContentBelow.style.display = 'block'; // Show the content below the graph
-            additionalContentRight.style.display = 'block'; // Show the content below the graph
-        }
-    });
-
-    // Add event listener to the download button
-    document.getElementById('downloadButton').addEventListener('click', function() {
-        // Call the download_dive function with filename and index
-        download_dive(selectedFileName, rowIndex-1);
-    });
-
-    function toggleMoreInfoButton(minimized) {
-        const moreInfoBtn = document.getElementById('more-info');
-        if (minimized) {
-            moreInfoBtn.textContent = 'Click for more data'; // Change button text to "More Info"
-        } else {
-            moreInfoBtn.textContent = 'Click to minimize data'; // Change button text to "Click to Minimize"
-        }
-    }
-        })}
-</script>
-
-<!-- Map script --> <script>
-  
-    var maxMapBounds = [
-        [90, -180], // North West
-        [-90, 180]  // South East
-    ];
-
-    // Initialize Leaflet map with max bounds and zoomed out view
-    var map = L.map('map', {
-        maxBounds: maxMapBounds,
-        maxBoundsViscosity: 1.0, // Ensure that the user cannot drag the map out of bounds
-        zoom: 2, // Set the initial zoom level to zoom out
-        center: [0, 0] // Set the initial center of the map
-    });
-    // Add Mapbox tile layer
-    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-            attribution: '© Diving Data Hub',
-            maxZoom: 18,
-            id: 'mapbox/outdoors-v12',
-            tileSize: 512,
-            zoomOffset: -1,
-            maxBounds: maxMapBounds,
-            accessToken: 'pk.eyJ1IjoibWFjYW50b21hdG8iLCJhIjoiY2x2MG4xbmU5MWhiMDJpcnprazNhMHBueCJ9.6rufAEhCvcvJQD02SMqGoQ' // Replace with your Mapbox access token
-      }).addTo(map);
+    return jsonify({'message': 'Data stored'})
 
 
-// Array to store reference to which marker has been clicked
-let markers = [];
+#Upload route
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Upload route"""
+    if 'xmlFile' not in request.files:
+        return jsonify(message='No file provided'), 400
+    file = request.files['xmlFile']
+    dive_computer = request.form.get('diveComputer', '')
 
-// Fetch latitude
-fetch('/get-latitude')
-  .then(response => response.text())
-  .then(latitude => {
-    // Fetch longitude
-    fetch('/get-longitude')
-      .then(response => response.text())
-      .then(longitude => {
-        // Split latitude and longitude strings into arrays
-        const regex = /"([^"]+)"/g;
-        latitude = latitude.slice(2, -3);
-        longitude = longitude.slice(2, -3);
-        // Extract numbers and map them to floats
-        const latitudeArray = Array.from(latitude.matchAll(regex), match => parseFloat(match[1]));
-        const longitudeArray = Array.from(longitude.matchAll(regex), match => parseFloat(match[1]));
-        // Assuming both latitude and longitude arrays have the same length
-        for (let i = 0; i < latitudeArray.length; i++) {
-          // Convert latitude and longitude to floating-point numbers
-          const lat = parseFloat(latitudeArray[i]);
-          const lng = parseFloat(longitudeArray[i]);
+    if file.filename == '':
+        return jsonify(message='No file selected'), 400
 
-          // Create marker and add it to the map
-          let marker = L.marker([lat, lng]).addTo(map);
-          marker.bindPopup("Latitude: " + lat + "<br>Longitude: " + lng + "<br>").openPopup();
-          markers.push(marker); // Push marker to list of markers
-          // Add click event listener to the marker
-          // Add click event listener to the marker
-          marker.on('click', function (e) {
-              handleMarkerClick(markers.indexOf(marker));
-          });
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching longitude:', error);
-      });
-  })
-  .catch(error => {
-    console.error('Error fetching latitude:', error);
-  });
+    if dive_computer == 'computer2':  # Garmin
+        if not file.filename.endswith('.fit'):
+            return jsonify(message='Please upload a FIT file for Garmin'), 400
+    # Retrieve coordinates from the session
+        latitude = session.get('latitude')
+        longitude = session.get('longitude')
+        name = session.get('divesite_name')
+        if not latitude or not longitude or not name:
+            return jsonify(message='Data not set'), 400
+        # Process Garmin file with your defined function here
+        # Assuming process_garmin_file returns data and an error message if any
+        xml_data, error = process_garmin_file(file, latitude,longitude,name)
+        if error:
+            return jsonify(message=error), 500
+    else:
+        if not file.filename.endswith('.xml'):
+            return jsonify(message='Please upload an XML file'), 400
+        xml_data = file.read()
 
-// Function to handle marker click event
-function handleMarkerClick(clickedMarkerIndex) {
-    const clickedMarker = markers[clickedMarkerIndex];
-    const clickedLatlng = clickedMarker.getLatLng(); // Get latitude and longitude of clicked marker
-    const nearbyDivesIndex = [];
-    const threshold = 30000; // 30km away
-    document.querySelector('.canvas-container').style.display = 'block';
-    // Iterate through all markers to find nearby dives
-    markers.forEach((marker, index) => {
-        markerLatlng = marker.getLatLng(); // Get latitude and longitude of current marker
-        distance = clickedLatlng.distanceTo(markerLatlng); // Calculate distance between markers
-        if (distance <= threshold) {
-            nearbyDivesIndex.push(markers.indexOf(marker)+1); //Since the list uses index for 1-n and not 0-n
-        }
-    });
-    // Fetch dive names and populate the dive list
-    fetch('/get-dive-name')
-        .then(response => response.text())
-        .then(data => { 
-            data = data.slice(2, -3);
-            let DiveIndex = 0; //File index/row index
-            const regex = /"([^"]+)"/g;
-            const DiveNames = Array.from(data.matchAll(regex), match => match[1]);
-            const DiveListBody = document.getElementById('dive-list');
-            // Clear existing dive list
-            DiveListBody.innerHTML = '';
-            trueIndex = 0; //For keeping track of the actual index stored in the array
+    filename = secure_filename(file.filename)
+    success, message = add_xml_data_to_database("dives", filename.replace('.fit', '.xml'), xml_data)
 
-            DiveNames.forEach((DiveName) => {
-                DiveIndex += 1; //Incrementer
-                if (nearbyDivesIndex.includes(DiveIndex) || DiveIndex === clickedMarkerIndex + 1) {
-                    const row = document.createElement('tr');
-                    const DiveNameCell = document.createElement('td');
-                    DiveNameCell.textContent = DiveName || 'Unnamed Dive'; // Show 'Unnamed Dive' if no name exists
-                    row.addEventListener('click', () => {
-                        ShowDiveProfileClick(DiveName);
-                    });
-                    row.appendChild(DiveNameCell);
-                    row.setAttribute('new-index', nearbyDivesIndex[trueIndex]); //Setting index for the row as an attribute
-                    DiveListBody.appendChild(row);
-                    trueIndex +=1;
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching dive names:', error);
-        });
-}
-</script>
+    if success:
+        # Clear session data
+        session.pop('latitude', None)
+        session.pop('longitude', None)
+        session.pop('divesite_name', None)
+        return jsonify(message=message), 200
+    else:
+        return jsonify(message=message), 500
 
-<!-- Script for returning to home-page --><script>
+@app.route('/download', methods=['POST'])
+def download_file():
+    """Downloads file from database"""
+    data = request.get_json()
+    selected_filename = data['fileName']
+    if not selected_filename.endswith('.xml'):
+        selected_filename += '.xml'
+    XqueryGetFile = f'''
+    let $file := doc('/db/dives/{selected_filename}')
+    return $file
+    '''
+    result=execute_query(XqueryGetFile)
+    return result
 
-    // Add event listener to the dash board click to invis the dive summary
-    document.getElementById('dashboard-return').addEventListener('click', function(event) {
-      document.querySelector('.graph-container').style.display = 'none';
-      document.querySelector('#map-container').style.display = 'block';
-    });
-    // Add event listener to the dash board click to invis the dive summary
-    document.getElementById('diving-return').addEventListener('click', function(event) {
-        document.querySelector('.graph-container').style.display = 'none';
-        document.querySelector('#map-container').style.display = 'block';
-    });
-</script>    
-
-<!-- Upload --><script>
-    // Function to show the dropdown and setup further interaction
-    function showDropdownAndPrepareUpload() {
-        const dropdown = document.getElementById('dive-computer-dropdown');
-        if (dropdown) {
-            dropdown.classList.remove('hidden'); // Show the dropdown
-            console.log('Dropdown shown');
-        } else {
-            console.error('Dropdown not found');
-        }
-    }
-    // Add event listener to the upload link
-    document.getElementById('upload-link').addEventListener('click', function(event) {
-        event.preventDefault(); // Prevent the default action of the link
-        showDropdownAndPrepareUpload(); // Show dropdown and prepare for file upload
-    });
-
-    // Event listener for dive computer selection
-  document.getElementById('diveComputer').addEventListener('change', function() {
-    const selectedComputer = this.value;
-    const coordsInput = document.getElementById('coordsInput');
-    const fileInput = document.getElementById('fileInput');
-    const agreeCheckboxContainer = document.getElementById('agreeCheckboxContainer');
-
-    // Show coordinates input for Garmin, keep file input hidden
-    if (selectedComputer === 'computer2') {
-        coordsInput.classList.remove('hidden');
-        agreeCheckboxContainer.classList.remove('hidden');
-    } else {
-        coordsInput.classList.add('hidden');
-        // If not Garmin and a computer is selected, enable file input
-        if (selectedComputer !== "") {
-            agreeCheckboxContainer.classList.remove('hidden'); // Show the agree checkbox
-            // Event listener for agree checkbox container
-            agreeCheckboxContainer.addEventListener('click', function() {
-                const agreeCheckbox = document.getElementById('agreeCheckbox');
-                const fileInput = document.getElementById('fileInput');
-  
-                if (agreeCheckbox.checked) {
-                    fileInput.classList.remove('hidden'); // Show file input
-                }
-            });
-        } else {
-            fileInput.classList.add('hidden');
-            agreeCheckboxContainer.classList.add('hidden'); // Hide the agree checkbox
-        }
-    }
-});
-
-// Event listener for agree checkbox
-document.getElementById('agreeCheckbox').addEventListener('change', function() {
-    const fileInput = document.getElementById('fileInput');
-    const isChecked = this.checked;
-
-    if (isChecked) {
-        fileInput.classList.remove('hidden'); // Show file input
-    } else {
-        fileInput.classList.add('hidden'); // Hide file input
-    }
-});
-
-// Function to submit coordinates
-function submitCoords() {
-    // Check if the agree checkbox is checked
-    const agreeCheckbox = document.getElementById('agreeCheckbox');
-    if (!agreeCheckbox.checked) {
-        alert("Please check the agreement checkbox.");
-        return;
-    }
-    const latitude = parseFloat(document.getElementById('latitude').value);
-    const longitude = parseFloat(document.getElementById('longitude').value);
-    const divesite_name = document.getElementById('divesite_name').value;
-    const fileInput = document.getElementById('fileInput');
-
-    if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
-        alert("Please enter valid latitude and longitude values.");
-        return;
-    }
-
-    if (divesite_name) {
-        // Send the coordinates to the backend
-        fetch('/use-coordinates', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ latitude: latitude, longitude: longitude, divesite_name: divesite_name })
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message); // Show server response
-            fileInput.classList.remove('hidden');
-            fileInput.click();
-        })
-        .catch(error => console.error('Error:', error));
-    } else {
-        alert("Please enter latitude, longitude, and divesite name.");
-    }
-}
-
-function isValidLatitude(lat) {
-    return lat >= -90 && lat <= 90;
-}
-
-function isValidLongitude(lon) {
-    return lon >= -180 && lon <= 180;
-}
-
-// Event listener to handle file selection and upload file
-document.getElementById('fileInput').addEventListener('change', function() {
-    const diveComputerSelected = document.getElementById('diveComputer').value;
-    const file = this.files[0];
-    // Check if UDDF is selected and enforce XML file type
-    if (diveComputerSelected === 'uddf' && file) {
-        const allowedExtensions = /\.xml$/i;
-        if (!allowedExtensions.exec(file.name)) {
-            alert('Only XML files are allowed for UDDF. Please select a valid XML file.');
-            this.value = ''; // Reset the file input
-            return; // Stop the function if file is not valid
-        }
-    }
-
-    if (this.files.length > 0) {
-        const formData = new FormData();
-        formData.append('xmlFile', this.files[0]);
-        formData.append('diveComputer', document.getElementById('diveComputer').value);
-
-        this.disabled = true; // Disable the file input during upload
-        fetch('/upload', {
-            method: 'POST',
-            body: formData,
-        })
-        .then(response => {
-            // Check the HTTP status code to determine if the operation was successful
-            if (!response.ok) {
-                throw new Error('Server responded with ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Upload response:', data);
-            alert(data.message || 'File uploaded successfully!'); // Show server or success message
-            this.value = ''; // Reset the file input
-        })
-        .catch(error => {
-            console.error('Error uploading file:', error);
-            alert('Failed to upload file: ' + error.message);
-        })
-        .finally(() => {
-            this.disabled = false; // Re-enable the file input after the upload
-        });
-    }
-});
-
-</script>
-</body>
-
-</html>
+if __name__ == '__main__':
+    app.run(debug=True)
