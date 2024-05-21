@@ -23,7 +23,7 @@ Session(app)
 # eXist-db connection settings
 EXIST_DB_URL = 'http://localhost:8080/exist/rest'
 EXIST_DB_USER = 'admin' #cahnge for your own (admin default)
-EXIST_DB_PASSWORD = '123' #change for your own password (admin default)
+EXIST_DB_PASSWORD = 'hej' #change for your own password (admin default)
 
 # Collection xquerys (non file specific) !!! Change all collection names to your own collection name
 XqueryGetFileName = """
@@ -251,9 +251,9 @@ def add_xml_data_to_database(database_name, document_name, xml_data):
     try:
         response = requests.put(url, auth=auth, data=xml_data, headers=headers)
         response.raise_for_status()
-        return True, "File added to the database successfully"
+        return True, "File uploaded successfully"
     except requests.exceptions.RequestException as e:
-        return False, f"Error adding file to the database: {e}"
+        return False, f"Error uploading file: {e}"
     
 def update_xml_with_coordinates(filepath, latitude, longitude, divesite_name):
     """
@@ -290,7 +290,6 @@ def process_garmin_file(file, latitude, longitude, name):
     command = ['python', 'konvert/Fit2UDDF.py', '-i', input_filepath, '-o', output_filepath]
     try:
         subprocess.run(command, check=True)
-        print(name)
         update_xml_with_coordinates(output_filepath, latitude, longitude, name)
         with open(output_filepath, 'rb') as f:
             xml_data = f.read()
@@ -309,12 +308,13 @@ def use_coordinates():
     session['longitude'] = data.get('longitude')
     session['divesite_name']=data.get('divesite_name')
 
-    return jsonify({'message': 'Data stored for future use'})
+    return jsonify({'message': 'Data stored'})
 
 
 #Upload route
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    """Upload route"""
     if 'xmlFile' not in request.files:
         return jsonify(message='No file provided'), 400
     file = request.files['xmlFile']
@@ -343,13 +343,13 @@ def upload_file():
         xml_data = file.read()
 
     filename = secure_filename(file.filename)
-    # Example function to add data to the database
     success, message = add_xml_data_to_database("dives", filename.replace('.fit', '.xml'), xml_data)
 
     if success:
         # Clear session data
-        for key in ['latitude', 'longitude', 'divesite_name']:
-            session.pop(key, None)
+        session.pop('latitude', None)
+        session.pop('longitude', None)
+        session.pop('divesite_name', None)
         return jsonify(message=message), 200
     else:
         return jsonify(message=message), 500
