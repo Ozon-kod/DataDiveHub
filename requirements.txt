@@ -3,3 +3,4 @@ beautifulsoup4==4.12.3
 Werkzeug==3.0.2
 requests==2.31.0
 Flask-Session==0.8.0
+gunicorn==19.9.0
